@@ -51,7 +51,8 @@ it — it makes the correct path the available one.
 | `src/model.rs` | Types: `Definition`, `Instance`, `State`, `Transition`, `Guard`, `Effect`, `Value`. |
 | `src/engine.rs` | Guard evaluation, effect application, `{var}` interpolation (impls on `Instance`). |
 | `src/render.rs` | Renders the step text the agent reads (`render`, `render_json`). |
-| `src/store.rs` | On-disk layout, load/save, definition validation. |
+| `src/lint.rs` | Definition linter: pure `lint(&Definition) -> Vec<Finding>` plus prose/JSON rendering. |
+| `src/store.rs` | On-disk layout, load/save, definition parse (`parse_definition`) + validation. |
 | `src/main.rs` | clap CLI: `new` / `show` / `do` / `log` (+ global `--json`). |
 | `.claude/skills/dev-cycle/machine-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. |
 | `.claude/skills/dev-cycle/SKILL.md` | This repo's own dev-cycle skill (dogfooded); delegates process sequencing to `fsmp` and keeps content/judgment in prose. |
@@ -74,7 +75,13 @@ fsmp new  --def <path> [--id <id>] [--set k=v ...]
 fsmp show --id <id>
 fsmp do   <transition> --id <id> [--data k=v ...]
 fsmp log  --id <id>
+fsmp lint --def <path>
 ```
+
+`fsmp lint` parses a definition (without instantiating it) and reports every
+authoring problem at once — unknown initial state, transition to an unknown
+state, unreachable state, dead-end (non-terminal with no exits), and terminal
+state that still declares transitions — exiting non-zero if any are found.
 
 A rejected `fsmp do` (unknown transition, missing required data, or a failed
 guard) prints the reason followed by the current guidance and exits non-zero —
@@ -98,8 +105,11 @@ bar is met) must stay covered.
 
 ## Status / not-yet-done
 
-v1 skeleton. Candidates: unit-test coverage growth, `fsmp ls`/`defs` inspect
-commands, a definition linter (unreachable / dead-end states), an `--mcp-stdio`
-mode exposing the engine over MCP for hard hook-enforced gating (the CLI is
-voluntary by design). `serde_yaml` 0.9 is deprecated but functional — consider
+v1 skeleton. `fsmp lint` (definition linter: unreachable / dead-end states, plus
+the structural checks) is done. Candidates: unit-test coverage growth, `fsmp
+ls`/`defs` inspect commands, an `--mcp-stdio` mode exposing the engine over MCP
+for hard hook-enforced gating (the CLI is voluntary by design). A linter
+follow-up worth noting: detecting states whose transitions are *all* permanently
+guard-blocked would need runtime guard evaluation and is deliberately out of the
+current linter's scope. `serde_yaml` 0.9 is deprecated but functional — consider
 `serde_yaml_ng` if it becomes a problem.

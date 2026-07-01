@@ -6,6 +6,7 @@
 //! valid moves, and names the blocked ones and why. See README for the model.
 
 mod engine;
+mod lint;
 mod model;
 mod render;
 mod store;
@@ -67,6 +68,13 @@ enum Cmd {
         #[arg(long)]
         id: String,
     },
+    /// Check a definition file for authoring problems (unreachable / dead-end
+    /// states, unknown targets) without instantiating it.
+    Lint {
+        /// Path to the definition (.yaml/.yml/.json).
+        #[arg(long)]
+        def: PathBuf,
+    },
 }
 
 fn main() -> ExitCode {
@@ -90,6 +98,7 @@ fn run(cli: &Cli) -> Result<ExitCode> {
             data,
         } => cmd_do(cli.json, transition, id, data),
         Cmd::Log { id } => cmd_log(cli.json, id),
+        Cmd::Lint { def } => cmd_lint(cli.json, def),
     }
 }
 
@@ -291,6 +300,24 @@ fn cmd_log(json: bool, id: &str) -> Result<ExitCode> {
         }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Lint a definition file: parse it (a malformed file is a hard error — you
+/// can't lint what won't parse), then report every authoring problem at once,
+/// exiting non-zero if there is at least one finding.
+fn cmd_lint(json: bool, def_path: &Path) -> Result<ExitCode> {
+    let def = store::parse_definition(def_path)?;
+    let findings = lint::lint(&def);
+    if json {
+        print_json(&lint::to_json(&findings));
+    } else {
+        print!("{}", lint::render_prose(&findings));
+    }
+    Ok(if findings.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
 }
 
 /// A rejected `do`: same guidance view as `show`, prefixed with why the move

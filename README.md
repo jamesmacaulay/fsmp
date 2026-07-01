@@ -62,7 +62,13 @@ fsmp new  --def <path> [--id <id>] [--set k=v ...]   # instantiate; print the en
 fsmp show --id <id>                                   # current state + valid/blocked transitions
 fsmp do   <transition> --id <id> [--data k=v ...]     # attempt a transition; print the new step
 fsmp log  --id <id>                                   # transition history
+fsmp lint --def <path>                                # check a definition for authoring problems
 ```
+
+`fsmp lint` reports every authoring problem in a definition at once — unknown
+initial state, transition to an unknown state, unreachable state, dead-end
+(non-terminal with no exits), and terminal state that still declares transitions
+— and exits non-zero if any are found.
 
 Add `--json` for a machine-readable view. A rejected `fsmp do` (unknown
 transition, missing required data, or a failed guard) exits non-zero and prints
@@ -92,10 +98,10 @@ run (see `.claude/skills/dev-cycle/machine-definition.yaml`). Tested with
 `cargo test` (unit tests inline; integration tests run the binary against that
 definition).
 
-Possible next steps: a definition linter (unreachable / dead-end states), `ls` /
-`defs` inspection commands, and an `--mcp-stdio` mode that exposes the same engine
-over MCP, where PreToolUse hooks could turn the voluntary sequencing into hard
-gating.
+Possible next steps: `ls` / `defs` inspection commands, and an `--mcp-stdio` mode
+that exposes the same engine over MCP, where PreToolUse hooks could turn the
+voluntary sequencing into hard gating. (`fsmp lint`, a definition linter for
+unreachable / dead-end states, has since landed.)
 
 ## Build & install
 

@@ -29,7 +29,10 @@ fn instance_path(id: &str) -> Result<PathBuf> {
     Ok(instance_dir(id)?.join("instance.json"))
 }
 
-pub fn load_definition(path: &Path) -> Result<Definition> {
+/// Read and deserialize a definition file (by extension), without validating it.
+/// `lint` uses this so it can collect *all* findings from a parseable definition
+/// instead of hard-failing at the first structural error the way `validate` does.
+pub fn parse_definition(path: &Path) -> Result<Definition> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("reading definition {path:?}"))?;
     let is_json = path.extension().map(|e| e == "json").unwrap_or(false);
@@ -38,6 +41,11 @@ pub fn load_definition(path: &Path) -> Result<Definition> {
     } else {
         serde_yaml::from_str(&text).with_context(|| format!("parsing YAML definition {path:?}"))?
     };
+    Ok(def)
+}
+
+pub fn load_definition(path: &Path) -> Result<Definition> {
+    let def = parse_definition(path)?;
     validate(&def).with_context(|| format!("invalid definition {path:?}"))?;
     Ok(def)
 }
