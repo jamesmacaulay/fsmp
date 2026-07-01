@@ -1,14 +1,18 @@
-# dev-cycle — implement-and-review workflow guardrail.
+# dev-cycle — implement-and-review workflow, driven by fsmp.
 #
-# Encodes the SKILL.md process so the orchestrator agent cannot skip the two
-# steps it habitually drops: (1) prompting the implementer to respond to a
-# reviewer's notes — INCLUDING non-blocking ones — and (2) routing the fix back
-# to the SAME reviewer for re-assessment. Convergence ("N clean-initial
-# reviewers") is a counter gate, so the agent cannot present early by miscount.
+# This state-machine definition owns the PROCESS SEQUENCE for the dev-cycle
+# skill (SKILL.md beside this file). The orchestrator agent does not track
+# "what's next" from memory — it drives this machine with `fsmp` and does what
+# each returned step says. The machine makes the two habitual slips impossible:
+# (1) skipping the implementer's response to a reviewer's notes — INCLUDING
+# non-blocking ones — and (2) not routing the fix back to the SAME reviewer for
+# re-assessment. Convergence ("N clean-initial reviewers") is a counter gate, so
+# the agent cannot present early by miscount.
 #
-# In real use this file lives at .claude/skills/dev-cycle/machine-definition.yaml
-# under version control; the SKILL.md tells the orchestrator to run:
-#   asm new --def <this file> --id <project>-<issue> --set bar=2
+# Installed into a project at .claude/skills/dev-cycle/machine-definition.yaml,
+# the skill runs:
+#   fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
+#     --id <project>-<issue> --set bar=<1|2>
 name: dev-cycle
 description: >-
   Drive a coherent unit of work from brief to operator-mergeable PR via a

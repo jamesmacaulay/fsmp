@@ -322,7 +322,12 @@ mod tests {
 
     #[test]
     fn parses_and_coerces_pairs_preserving_order() {
-        let m = parse_kv(&["bar=2".into(), "pr_url=https://x/1".into(), "on=true".into()]).unwrap();
+        let m = parse_kv(&[
+            "bar=2".into(),
+            "pr_url=https://x/1".into(),
+            "on=true".into(),
+        ])
+        .unwrap();
         assert_eq!(m["bar"], Value::Int(2));
         assert_eq!(m["pr_url"], Value::Str("https://x/1".into()));
         assert_eq!(m["on"], Value::Bool(true));

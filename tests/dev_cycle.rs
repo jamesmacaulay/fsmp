@@ -9,9 +9,11 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+/// The dev-cycle definition we ship beside the skill. Testing it directly means
+/// the shipped guardrail is guaranteed to load and drive correctly.
 fn fixture() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/dev-cycle.yaml")
+        .join("examples/dev-cycle/machine-definition.yaml")
         .to_string_lossy()
         .into_owned()
 }
