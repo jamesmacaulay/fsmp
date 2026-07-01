@@ -1,0 +1,200 @@
+# dev-cycle — implement-and-review workflow guardrail.
+#
+# Encodes the SKILL.md process so the orchestrator agent cannot skip the two
+# steps it habitually drops: (1) prompting the implementer to respond to a
+# reviewer's notes — INCLUDING non-blocking ones — and (2) routing the fix back
+# to the SAME reviewer for re-assessment. Convergence ("N clean-initial
+# reviewers") is a counter gate, so the agent cannot present early by miscount.
+#
+# In real use this file lives at .claude/skills/dev-cycle/machine-definition.yaml
+# under version control; the SKILL.md tells the orchestrator to run:
+#   asm new --def <this file> --id <project>-<issue> --set bar=2
+name: dev-cycle
+description: >-
+  Drive a coherent unit of work from brief to operator-mergeable PR via a
+  persistent implementer and a fresh adversarial reviewer per round.
+
+# Set once at `new`, read-only thereafter (the Phase-0 per-work-type call).
+params:
+  bar: 2            # clean-initial reviewers required to converge (drop to 1 for pure mechanical work)
+  round_ceiling: 8  # escalate rather than loop past this many reviewer rounds
+
+# Live run state.
+context:
+  clean_initial_count: 0   # reviewers whose INITIAL verdict was clean AND who then reached SATISFIED
+  round_count: 1           # current reviewer round
+  initial_was_clean: false # did THIS round's reviewer open with zero blocking?
+  pr_url: ""               # filled in when the implementer opens the PR
+
+initial: triage
+
+states:
+
+  triage:
+    guidance: |
+      Phase 0 — scope & brief. Sort this work into: actionable / needs light
+      design first / needs an operator decision / out of scope. This is NOT a
+      full cold interrogation — the only question is "can I write a clear brief?"
+
+      If actionable: author the kickoff brief, ensure the worktree + GitHub issue
+      exist, and confirm the review bar ({bar} clean initials). Then `brief_ready`.
+      Otherwise `escalate` — do the design or get the operator call first.
+    transitions:
+      brief_ready:
+        to: implementing
+        when: work is actionable and the kickoff brief is authored
+      escalate:
+        to: escalated
+        when: needs design, an operator decision, or is out of scope
+
+  implementing:
+    guidance: |
+      Phase 1 — the persistent implementer is building (TDD-first) and running
+      the pre-push gate. Do nothing until it returns `PR <url> — gate green`.
+      When it does, fire `pr_opened` with that url so later steps can cite it.
+    transitions:
+      pr_opened:
+        to: awaiting_review
+        requires: [pr_url]
+        when: implementer returned the PR url with the gate green
+      escalate:
+        to: escalated
+        when: a build/test failure the implementer cannot resolve
+
+  awaiting_review:
+    guidance: |
+      Round {round_count}. A FRESH reviewer is reviewing PR {pr_url} with fresh
+      eyes. When it returns, dispatch on its INITIAL verdict token — that
+      classification is load-bearing for convergence, so record it now:
+
+        • clean        → fire `verdict_clean`       (nothing to address; reviewer is already satisfied)
+        • clean, notes → fire `verdict_clean_notes` (non-blocking notes STILL owe an implementer response)
+        • changes      → fire `verdict_changes`     (one or more blocking problems)
+
+      A clean-notes or changes verdict is NOT the end of the round. The reviewer
+      keeps the last say. There is deliberately no path to `present` from here.
+    transitions:
+      verdict_clean:
+        to: round_complete
+        when: zero blocking AND zero non-blocking notes — literally nothing to address
+        # No implementer exchange, no re-assessment: this reviewer counts immediately.
+        effects:
+          - { set: initial_was_clean, to: true }
+          - { incr: clean_initial_count }
+      verdict_clean_notes:
+        to: awaiting_impl_response
+        when: zero blocking, but the reviewer left non-blocking notes
+        effects:
+          - { set: initial_was_clean, to: true }
+      verdict_changes:
+        to: awaiting_impl_response
+        when: one or more blocking problems
+        effects:
+          - { set: initial_was_clean, to: false }
+      escalate:
+        to: escalated
+        when: recurring blocker or round ceiling reached
+
+  awaiting_impl_response:
+    guidance: |
+      The reviewer's notes are NOT optional. SendMessage the implementer to
+      respond to EVERY note — blocking AND non-blocking — at {pr_url}: address
+      each with code + a PR reply (or a justified deferral), push, return DONE.
+
+      A non-blocking note still owes the SAME reviewer's SATISFIED. Do NOT
+      substitute your own shallow check for the reviewer's re-assessment.
+    transitions:
+      impl_responded:
+        to: awaiting_reassessment
+        when: implementer returned DONE with the response pushed
+      escalate:
+        to: escalated
+        when: a build/test failure the implementer cannot resolve
+
+  awaiting_reassessment:
+    guidance: |
+      Send the SAME reviewer (not a fresh one) back in to re-assess how ITS OWN
+      notes were handled — this is what catches theater fixes. If the response
+      added or changed a test, the reviewer revert-proofs THAT test. Do not skip
+      because the fix "looks trivial."
+
+        • reviewer returns SATISFIED → fire `reviewer_satisfied`
+        • reviewer returns CHANGES   → fire `reviewer_changes` (loops back to the implementer)
+    transitions:
+      reviewer_satisfied:
+        to: round_complete
+        when: the reviewer's notes are adequately addressed or justifiably deferred
+        # Count this reviewer toward the bar ONLY if its INITIAL verdict was clean.
+        effects:
+          - if: { var: initial_was_clean, op: eq, value: true }
+            then: { incr: clean_initial_count }
+      reviewer_changes:
+        to: awaiting_impl_response
+        when: anything is still off — including a FRESH non-blocking note noticed now
+      escalate:
+        to: escalated
+        when: the same blocker recurs across rounds
+
+  round_complete:
+    guidance: |
+      This reviewer's round is done. Convergence: {clean_initial_count} of {bar}
+      clean-initial reviewers so far (round {round_count} of {round_ceiling}).
+
+      If the bar is met, `converge` to presentation. Otherwise spawn the NEXT
+      fresh reviewer with `next_round`. A clean initial from ONE reviewer is not
+      convergence — you need {bar} SEPARATE reviewers who each opened clean.
+    transitions:
+      next_round:
+        to: awaiting_review
+        when: bar not yet met — spawn the next fresh reviewer (adaptive emphasis)
+        blocked_reason: >-
+          bar of {bar} clean-initial reviewers already met (have {clean_initial_count}),
+          or round ceiling {round_ceiling} reached
+        guards:
+          - { var: clean_initial_count, op: lt, param: bar }
+          - { var: round_count, op: lt, param: round_ceiling }
+        effects:
+          - { incr: round_count }
+          - { set: initial_was_clean, to: false }
+      converge:
+        to: presenting
+        when: the bar is met — every reviewer satisfied; present for operator merge
+        blocked_reason: >-
+          needs {bar} clean-initial reviewers, each subsequently SATISFIED;
+          currently {clean_initial_count}
+        guards:
+          - { var: clean_initial_count, op: gte, param: bar }
+      escalate:
+        to: escalated
+        when: round ceiling hit or a blocker recurs across rounds
+
+  presenting:
+    guidance: |
+      Phase 3 — shallow check, then PRESENT. Confirm: gate green on HEAD;
+      every test-plan box ticked or annotated; {bar} clean-initial reviewers each
+      reached SATISFIED with every non-blocking note addressed or justified. Then
+      present PR {pr_url} with a merge-readiness summary.
+
+      You NEVER self-merge. The operator clicks merge — fire `operator_merged`
+      only after they have.
+    transitions:
+      operator_merged:
+        to: merged
+        when: the operator merged the PR
+      escalate:
+        to: escalated
+        when: a late problem surfaces that needs an operator decision
+
+  merged:
+    terminal: true
+    guidance: |
+      Phase 4 — propagate. Update memory, the issue status, and knowledge/*.md;
+      clean up the worktree/branch. This machine is complete.
+
+  escalated:
+    terminal: true
+    guidance: |
+      Escalated to the operator with the PR thread and a one-line hypothesis
+      (reviewer over-reach / implementer misunderstanding / genuine design
+      disagreement / spec ambiguity). Await the operator's decision. This
+      machine is complete; start a fresh run if work resumes.
