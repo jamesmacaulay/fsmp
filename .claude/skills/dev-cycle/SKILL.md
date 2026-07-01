@@ -43,8 +43,13 @@ fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
 
 Pick **bar=2** by default; **bar=1** only for low-risk *mechanical* work whose
 correctness the compiler/test-suite proves on its own (a pure rename, a
-scope/dependency rename, a doc-only change). Keep the returned id — you pass it to
-every later call.
+scope/dependency rename, a doc-only change).
+
+Give `--id` a **descriptive** value — default `<project>-<issue>` (e.g.
+`fsmp-42`). It ties the run to its issue, keeps `~/.fsmp/state/<id>/` legible in
+`fsmp show`/`log`, and avoids collisions. When there's no issue number, use something
+similarly descriptive (`<project>-<short-slug>`, e.g. `fsmp-lint-linter`) — never a
+bare counter like `fsmp-1`. Keep the returned id — you pass it to every later call.
 
 **2. Every turn: obey the guidance, then record the outcome.** The machine prints
 your current state, exactly what to do now, the valid transitions, and any blocked
@@ -209,8 +214,11 @@ After the implementer responds, I'll send you back to re-assess how EACH of your
 diff directly. Don't rubber-stamp — confirm each change does what the reply claims, and
 that any deferral is justified. If the response ADDED or CHANGED a test, revert-proof
 THAT test yourself (neutralize the production guard, confirm the test fails, revert).
-Then return ONLY one line:
-`SATISFIED`                     (your notes are adequately addressed or justifiably deferred)
+Post a short sign-off comment on the PR (`gh pr comment <N>`) recording your final
+verdict (SATISFIED), which of your notes it covers, and a one-line confirmation of what
+you re-verified (e.g. revert-proofing of any added/changed test; the rationale accepted
+for any justified deferral). Then return ONLY one line:
+`SATISFIED — <comment-url>`     (notes adequately addressed or justifiably deferred; sign-off posted)
 `CHANGES — <comment-url>`       (post a follow-up comment first; I'll loop the implementer)
 Anything new you notice at re-assessment (including a fresh non-blocking note) rides
 `CHANGES`. We go back and forth until YOU are satisfied.
@@ -225,7 +233,9 @@ build/cache dirs; use a fresh browser profile.)
 - **Agents return one-line verdicts; PR comments hold the substance.** You see only
   `VERDICT` / `DONE` lines plus URLs. The implementer reads the reviewer's comment
   directly off the PR; the next fresh reviewer reads the whole thread directly. None of
-  it routes through you — don't summarize or relay review findings.
+  it routes through you — don't summarize or relay review findings. This covers reviewer
+  **sign-offs** too, not just findings: the re-assessment `SATISFIED` comment lands on
+  the PR so the thread ends on a visible approval a human or the next reviewer can see.
 - **No polling. Anywhere.** Sequence on the harness's completion notifications. Don't
   ask an agent to poll another, and don't poll them yourself.
 - **Read the PR on idle.** Reviewers reliably *write* their verdict in the PR comment
