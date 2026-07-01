@@ -39,22 +39,34 @@ fn instance_path(id: &str) -> Result<PathBuf> {
 /// parser is never guessed from content. The extension is matched
 /// case-insensitively (macOS filesystems are commonly case-insensitive).
 pub fn parse_definition(path: &Path) -> Result<Definition> {
-    // Lowercase the extension before matching; a missing or non-UTF8 extension
-    // yields None and falls through to the unsupported-extension error below.
+    enum Format {
+        Yaml,
+        Json,
+    }
+    // Resolve the parser from the extension BEFORE touching the file, so an
+    // unsupported extension is reported as the static contract violation it is
+    // (winning over an incidental read error like a missing file) and we skip the
+    // read syscall on a known-bad path. Lowercase first — macOS filesystems are
+    // commonly case-insensitive; a missing or non-UTF8 extension yields None and
+    // is rejected.
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(str::to_ascii_lowercase);
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("reading definition {path:?}"))?;
-    let def: Definition = match ext.as_deref() {
-        Some("json") => serde_json::from_str(&text)
-            .with_context(|| format!("parsing JSON definition {path:?}"))?,
-        Some("yaml") | Some("yml") => serde_yaml::from_str(&text)
-            .with_context(|| format!("parsing YAML definition {path:?}"))?,
+    let format = match ext.as_deref() {
+        Some("json") => Format::Json,
+        Some("yaml") | Some("yml") => Format::Yaml,
         _ => anyhow::bail!(
             "unsupported definition extension for {path:?} (expected .yaml, .yml, or .json)"
         ),
+    };
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading definition {path:?}"))?;
+    let def: Definition = match format {
+        Format::Json => serde_json::from_str(&text)
+            .with_context(|| format!("parsing JSON definition {path:?}"))?,
+        Format::Yaml => serde_yaml::from_str(&text)
+            .with_context(|| format!("parsing YAML definition {path:?}"))?,
     };
     Ok(def)
 }
@@ -198,6 +210,24 @@ states:
         assert!(err.contains(".yaml"), "should name .yaml: {err}");
         assert!(err.contains(".yml"), "should name .yml: {err}");
         assert!(err.contains(".json"), "should name .json: {err}");
+    }
+
+    #[test]
+    fn unsupported_extension_wins_over_a_missing_file() {
+        // The extension is the static contract, checked before the file is read,
+        // so a nonexistent `.txt` reports the extension error rather than a read
+        // error — and no read syscall is issued on a known-bad extension.
+        let missing = std::env::temp_dir().join("fsmp-store-does-not-exist.txt");
+        let _ = std::fs::remove_file(&missing); // ensure absent
+        let err = load_definition(&missing).unwrap_err().to_string();
+        assert!(
+            err.contains("unsupported definition extension"),
+            "extension error should win over the read error: {err}"
+        );
+        assert!(
+            !err.contains("reading definition"),
+            "should not have read: {err}"
+        );
     }
 
     #[test]
