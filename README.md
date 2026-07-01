@@ -41,9 +41,11 @@ the *sequence* is enforced rather than merely suggested.
 
 ## Model
 
-- **Definition** — static, human-authored, kept in version control (YAML, or JSON
-  by extension). States + `params` (set once at `new`, read-only) + `context`
-  (mutable) + transitions with guards and effects.
+- **Definition** — static, human-authored, kept in version control. The file
+  extension selects the parser (case-insensitively): `.yaml`/`.yml` for YAML,
+  `.json` for JSON; any other extension is rejected. States + `params` (set once
+  at `new`, read-only) + `context` (mutable) + transitions with guards and
+  effects.
 - **Instance** — a live run: a snapshot of the definition plus the current state,
   context, and transition log. Stored as JSON under `~/.fsmp/state/<id>/`, never
   in version control. The definition is snapshotted at `new`, so editing the

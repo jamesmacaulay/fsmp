@@ -65,7 +65,17 @@ impl Out {
 
 /// Write `contents` to a uniquely-named temp definition file and return its path.
 fn write_def(name: &str, contents: &str) -> String {
-    let path = std::env::temp_dir().join(format!("fsmp-lint-it-{name}.yaml"));
+    write_def_ext(name, "yaml", contents)
+}
+
+/// Like `write_def` but with an explicit extension (or none, when `ext` is empty).
+fn write_def_ext(name: &str, ext: &str, contents: &str) -> String {
+    let file = if ext.is_empty() {
+        format!("fsmp-lint-it-{name}")
+    } else {
+        format!("fsmp-lint-it-{name}.{ext}")
+    };
+    let path = std::env::temp_dir().join(file);
     std::fs::write(&path, contents).unwrap();
     path.to_string_lossy().into_owned()
 }
@@ -169,4 +179,46 @@ states:
 fn a_malformed_definition_is_a_hard_error_not_a_finding() {
     let p = write_def("malformed", "name: [unterminated\n");
     run(&["lint", "--def", &p]).fail().lacks("clean");
+}
+
+/// Content is a valid definition; only the `.txt` extension is wrong. This must be
+/// a HARD error (non-zero, message naming the accepted set), not a lint finding —
+/// the allowlist lives in the shared loader, so `lint` never reaches its checks.
+#[test]
+fn an_unsupported_extension_is_a_hard_error_not_a_finding() {
+    let p = write_def_ext(
+        "wrongext",
+        "txt",
+        "\
+name: t
+initial: a
+states:
+  a:
+    terminal: true
+",
+    );
+    run(&["lint", "--def", &p])
+        .fail()
+        .lacks("clean")
+        .has(".yaml");
+}
+
+/// The allowlist is enforced in the shared loader, so `new` rejects a wrong
+/// extension identically — proving it is not bolted onto `lint` alone.
+#[test]
+fn new_also_hard_errors_on_an_unsupported_extension() {
+    let p = write_def_ext(
+        "wrongextnew",
+        "txt",
+        "\
+name: t
+initial: a
+states:
+  a:
+    terminal: true
+",
+    );
+    run(&["new", "--def", &p, "--id", "ext-reject"])
+        .fail()
+        .has(".yaml");
 }
