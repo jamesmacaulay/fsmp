@@ -29,17 +29,44 @@ fn instance_path(id: &str) -> Result<PathBuf> {
     Ok(instance_dir(id)?.join("instance.json"))
 }
 
-/// Read and deserialize a definition file (by extension), without validating it.
-/// `lint` uses this so it can collect *all* findings from a parseable definition
-/// instead of hard-failing at the first structural error the way `validate` does.
+/// Read and deserialize a definition file, selecting the parser from an extension
+/// allowlist, without validating structure. `lint` uses this so it can collect
+/// *all* findings from a parseable definition instead of hard-failing at the first
+/// structural error the way `validate` does.
+///
+/// Only `.yaml`/`.yml` (YAML) and `.json` (JSON) are accepted; any other
+/// extension — or none at all — is a hard error naming the accepted set, so the
+/// parser is never guessed from content. The extension is matched
+/// case-insensitively (macOS filesystems are commonly case-insensitive).
 pub fn parse_definition(path: &Path) -> Result<Definition> {
+    enum Format {
+        Yaml,
+        Json,
+    }
+    // Resolve the parser from the extension BEFORE touching the file, so an
+    // unsupported extension is reported as the static contract violation it is
+    // (winning over an incidental read error like a missing file) and we skip the
+    // read syscall on a known-bad path. Lowercase first — macOS filesystems are
+    // commonly case-insensitive; a missing or non-UTF8 extension yields None and
+    // is rejected.
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    let format = match ext.as_deref() {
+        Some("json") => Format::Json,
+        Some("yaml") | Some("yml") => Format::Yaml,
+        _ => anyhow::bail!(
+            "unsupported definition extension for {path:?} (expected .yaml, .yml, or .json)"
+        ),
+    };
     let text =
         std::fs::read_to_string(path).with_context(|| format!("reading definition {path:?}"))?;
-    let is_json = path.extension().map(|e| e == "json").unwrap_or(false);
-    let def: Definition = if is_json {
-        serde_json::from_str(&text).with_context(|| format!("parsing JSON definition {path:?}"))?
-    } else {
-        serde_yaml::from_str(&text).with_context(|| format!("parsing YAML definition {path:?}"))?
+    let def: Definition = match format {
+        Format::Json => serde_json::from_str(&text)
+            .with_context(|| format!("parsing JSON definition {path:?}"))?,
+        Format::Yaml => serde_yaml::from_str(&text)
+            .with_context(|| format!("parsing YAML definition {path:?}"))?,
     };
     Ok(def)
 }
@@ -151,5 +178,68 @@ states:
     fn surfaces_a_parse_error_for_malformed_yaml() {
         let p = temp_def("malformed", "yaml", "name: [unterminated\n");
         assert!(load_definition(&p).is_err());
+    }
+
+    #[test]
+    fn accepts_yml_extension() {
+        let p = temp_def("yml", "yml", VALID);
+        let def = load_definition(&p).expect("valid .yml should load");
+        assert_eq!(def.initial, "a");
+    }
+
+    #[test]
+    fn accepts_uppercase_extensions_case_insensitively() {
+        let py = temp_def("upperyaml", "YAML", VALID);
+        assert_eq!(
+            load_definition(&py).expect("`.YAML` should load").initial,
+            "a"
+        );
+
+        let json = r#"{"name":"t","initial":"a","states":{"a":{"transitions":{}}}}"#;
+        let pj = temp_def("upperjson", "JSON", json);
+        assert_eq!(
+            load_definition(&pj).expect("`.JSON` should load").initial,
+            "a"
+        );
+    }
+
+    #[test]
+    fn rejects_unsupported_extension_naming_the_accepted_set() {
+        let p = temp_def("txt", "txt", VALID);
+        let err = load_definition(&p).unwrap_err().to_string();
+        assert!(err.contains(".yaml"), "should name .yaml: {err}");
+        assert!(err.contains(".yml"), "should name .yml: {err}");
+        assert!(err.contains(".json"), "should name .json: {err}");
+    }
+
+    #[test]
+    fn unsupported_extension_wins_over_a_missing_file() {
+        // The extension is the static contract, checked before the file is read,
+        // so a nonexistent `.txt` reports the extension error rather than a read
+        // error — and no read syscall is issued on a known-bad extension.
+        let missing = std::env::temp_dir().join("fsmp-store-does-not-exist.txt");
+        let _ = std::fs::remove_file(&missing); // ensure absent
+        let err = load_definition(&missing).unwrap_err().to_string();
+        assert!(
+            err.contains("unsupported definition extension"),
+            "extension error should win over the read error: {err}"
+        );
+        assert!(
+            !err.contains("reading definition"),
+            "should not have read: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_a_file_with_no_extension() {
+        // `unwrap_or(false)` previously routed extensionless files to YAML; the
+        // allowlist now rejects them.
+        let path = std::env::temp_dir().join("fsmp-store-noext");
+        std::fs::write(&path, VALID).unwrap();
+        let err = load_definition(&path).unwrap_err().to_string();
+        assert!(
+            err.contains(".yaml"),
+            "should name accepted extensions: {err}"
+        );
     }
 }
