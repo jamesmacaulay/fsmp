@@ -1,8 +1,9 @@
-# dev-cycle — an example fsmp-backed skill
+# dev-cycle — an fsmp-backed skill
 
-This is a worked example of a skill that delegates its **process sequencing** to
-`fsmp` while keeping the **content and judgment** (briefs, agent templates, review
-DNA, escalation) in the skill prose.
+This is the fsmp repo's own dev-cycle skill (it dogfoods itself), and doubles as a
+worked example of a skill that delegates its **process sequencing** to `fsmp` while
+keeping the **content and judgment** (briefs, agent templates, review DNA,
+escalation) in the skill prose.
 
 - `SKILL.md` — the skill. Its "Driving the cycle with fsmp" section replaces the
   process-flow logic a monolithic skill would spell out; the machine owns *which
@@ -24,9 +25,10 @@ DNA, escalation) in the skill prose.
 reported transition is truthful, only that the agent passes through the required
 states in order.
 
-## Installing into a project
+## Reusing this in another project
 
-Copy this directory to the consuming project's `.claude/skills/dev-cycle/`, adapt
-the pre-push gate and any project-specific wording in `SKILL.md`, and ensure
-`fsmp` is on PATH. The `fsmp new --def …` command in `SKILL.md` already points at
-`.claude/skills/dev-cycle/machine-definition.yaml`.
+Copy this directory to the other project's `.claude/skills/dev-cycle/`, adapt the
+pre-push gate and any project-specific wording in `SKILL.md`, and ensure `fsmp` is
+on PATH. The `fsmp new --def …` command in `SKILL.md` already points at
+`.claude/skills/dev-cycle/machine-definition.yaml`, so it works unchanged once the
+directory is in place.

@@ -53,8 +53,8 @@ it — it makes the correct path the available one.
 | `src/render.rs` | Renders the step text the agent reads (`render`, `render_json`). |
 | `src/store.rs` | On-disk layout, load/save, definition validation. |
 | `src/main.rs` | clap CLI: `new` / `show` / `do` / `log` (+ global `--json`). |
-| `examples/dev-cycle/machine-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. |
-| `examples/dev-cycle/SKILL.md` | Example skill that delegates its process sequencing to `fsmp` and keeps content/judgment in prose. |
+| `.claude/skills/dev-cycle/machine-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. |
+| `.claude/skills/dev-cycle/SKILL.md` | This repo's own dev-cycle skill (dogfooded); delegates process sequencing to `fsmp` and keeps content/judgment in prose. |
 | `tests/` | Integration tests that run the built binary against the example definition. |
 
 ## Model
@@ -87,14 +87,14 @@ the rejection is itself a prompt.
   tests in `tests/` run the real binary via `CARGO_BIN_EXE_fsmp` with a temp
   `FSMP_HOME`, so they never touch a real `~/.fsmp`).
 - Run: `cargo run -- <args>`, e.g.
-  `cargo run -- new --def examples/dev-cycle/machine-definition.yaml --id demo --set bar=2`
+  `cargo run -- new --def .claude/skills/dev-cycle/machine-definition.yaml --id demo --set bar=2`
 - Lint: `cargo clippy`; format: `cargo fmt`.
 
 When you change the engine or the dev-cycle definition
-(`examples/dev-cycle/machine-definition.yaml`), **add/adjust an integration test
-that drives it** — the two behaviors this tool exists to guarantee (can't skip
-the reviewer-response/re-assessment steps; can't `converge` before the counter bar
-is met) must stay covered.
+(`.claude/skills/dev-cycle/machine-definition.yaml`), **add/adjust an integration
+test that drives it** — the two behaviors this tool exists to guarantee (can't
+skip the reviewer-response/re-assessment steps; can't `converge` before the counter
+bar is met) must stay covered.
 
 ## Status / not-yet-done
 

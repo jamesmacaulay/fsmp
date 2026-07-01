@@ -70,9 +70,10 @@ the reason followed by the current step.
 
 ## Example
 
-`examples/dev-cycle/` is a worked example: a skill (`SKILL.md`) that delegates its
-process sequencing to `fsmp`, plus the `machine-definition.yaml` it drives. The
-skill points its orchestrator agent at the definition:
+`.claude/skills/dev-cycle/` is a worked example that this repo also dogfoods: a
+skill (`SKILL.md`) that delegates its process sequencing to `fsmp`, plus the
+`machine-definition.yaml` it drives. The skill points its orchestrator agent at
+the definition:
 
 ```
 fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml --id myproj-1234 --set bar=2
@@ -81,14 +82,15 @@ fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml --id myproj-1234
 and then drives `fsmp do <transition>` as the cycle progresses. The agent can't
 reach `presenting` until `bar` separate reviewers have each opened with a clean
 initial verdict and reached SATISFIED — a count the machine tracks rather than
-the agent. See `examples/dev-cycle/README.md` for the division of labour between
-the skill prose and the state machine.
+the agent. See `.claude/skills/dev-cycle/README.md` for the division of labour
+between the skill prose and the state machine.
 
 ## Status
 
 v1. `new` / `show` / `do` / `log` work, and the dev-cycle definition drives a full
-run (see `examples/dev-cycle/machine-definition.yaml`). Tested with `cargo test`
-(unit tests inline; integration tests run the binary against that definition).
+run (see `.claude/skills/dev-cycle/machine-definition.yaml`). Tested with
+`cargo test` (unit tests inline; integration tests run the binary against that
+definition).
 
 Possible next steps: a definition linter (unreachable / dead-end states), `ls` /
 `defs` inspection commands, and an `--mcp-stdio` mode that exposes the same engine
