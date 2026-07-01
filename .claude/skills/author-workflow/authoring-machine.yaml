@@ -1,0 +1,139 @@
+# author-workflow — the pipeline that guards HOW an fsmp definition gets authored.
+#
+# This machine is driven by the author-workflow skill (SKILL.md beside this
+# file). Elicitation and graph design happen conversationally with the user
+# BEFORE the machine starts; the machine then enforces the un-skippable tail:
+# no YAML before the graph is signed off; no dry-run before lint is clean; no
+# user sign-off before a dry-run; no `done` before explicit acceptance. Each
+# quality gate can send you back to `drafting` but never forward past a failure.
+#
+# It doubles as a second worked example (alongside dev-cycle) of the
+# pipeline-with-retry-gates shape — see `fsmp guide definition`.
+#
+# Installed at .claude/skills/author-workflow/authoring-machine.yaml, the skill
+# runs:
+#   fsmp new --def .claude/skills/author-workflow/authoring-machine.yaml \
+#     --id <project>-<slug>
+name: author-workflow
+description: >-
+  Author an fsmp definition WITH a user: design the graph together, then drive
+  the un-skippable draft → lint → dry-run → sign-off tail.
+
+# Live run state. `def_path` is captured at graph sign-off and interpolated into
+# every later step so each instruction names the exact file.
+context:
+  def_path: ""
+
+initial: graph_review
+
+states:
+
+  graph_review:
+    guidance: |
+      Before writing ANY YAML, show the user the drafted graph: the states, the
+      transitions between them, and for each guard or counter the OMISSION
+      failure-mode it defends against (the step an agent would otherwise skip).
+      Get explicit sign-off on the SHAPE now — changing it after the prose is
+      written is expensive.
+
+      On approval, fire `graph_approved` with the path you'll write to:
+      `--data def_path=<path>`.
+    transitions:
+      graph_approved:
+        to: drafting
+        when: the user signed off on the state graph
+        requires: [def_path]
+      escalate:
+        to: escalated
+        when: the workflow resists a clean state machine, or scope needs an operator call
+
+  drafting:
+    guidance: |
+      Write the definition at {def_path}. Read `fsmp guide definition` first for
+      the grammar and patterns. Author each state's `guidance` as an imperative
+      instruction for the NEXT action (not a description of where the machine
+      is); interpolate `{vars}` so every number and url states the live truth;
+      give every guarded transition a `blocked_reason`; keep guards structured —
+      no expression language (alternatives are separate transitions, not `or`).
+
+      Then fire `draft_written`.
+    transitions:
+      draft_written:
+        to: linting
+        when: the definition is written to {def_path}
+      escalate:
+        to: escalated
+        when: authoring is blocked on a decision the user must make
+
+  linting:
+    guidance: |
+      Run `fsmp lint --def {def_path}`. It must exit clean — it catches
+      unreachable states, dead ends, unknown targets, and terminals that still
+      declare transitions.
+
+      Any problems → fire `lint_failed` and fix them. Clean → fire `lint_clean`.
+    transitions:
+      lint_clean:
+        to: dry_run
+        when: lint reported no problems
+      lint_failed:
+        to: drafting
+        when: lint reported one or more problems — go back and fix
+      escalate:
+        to: escalated
+        when: authoring is blocked on a decision the user must make
+
+  dry_run:
+    guidance: |
+      Lint proves structure, not flow. Walk the machine in a throwaway home:
+      `FSMP_HOME=$(mktemp -d) fsmp new --def {def_path} --id dry`, then drive the
+      happy path AND deliberately attempt each guard-blocked move to confirm it
+      is refused with a sensible reason. Check every state's guidance actually
+      tells you what to do next, and that every counter gate can open.
+
+      Flows wrong (a gate that never opens, a dead prompt, a missing edge) →
+      fire `dryrun_failed`. Flows right → fire `dryrun_passed`.
+    transitions:
+      dryrun_passed:
+        to: user_signoff
+        when: the happy path and every refused move behaved correctly
+      dryrun_failed:
+        to: drafting
+        when: a gate, guidance string, or edge was wrong — go back and fix
+      escalate:
+        to: escalated
+        when: authoring is blocked on a decision the user must make
+
+  user_signoff:
+    guidance: |
+      Show the user the working definition and the dry-run trace (the happy path
+      plus the moves that were correctly refused). This is their acceptance gate.
+
+      Fire `accepted` on their approval, or `changes_requested` to go back to
+      drafting with their feedback.
+    transitions:
+      accepted:
+        to: done
+        when: the user accepted the definition
+      changes_requested:
+        to: drafting
+        when: the user wants changes — go back to drafting
+      escalate:
+        to: escalated
+        when: authoring is blocked on a decision the user must make
+
+  done:
+    terminal: true
+    guidance: |
+      Authored, linted, dry-run, and accepted. Propagate: if this workflow will
+      be driven by a skill, scaffold its SKILL.md beside the YAML at {def_path}
+      (delegate the sequencing to fsmp, keep the judgment in prose — dev-cycle is
+      the model). Commit the definition. This machine is complete.
+
+  escalated:
+    terminal: true
+    guidance: |
+      Escalated: authoring is blocked on a decision the user must make — scope, a
+      design tension, or a workflow that resists a clean state machine. Surface
+      it and await their call. This machine is complete; start a fresh run if
+      authoring resumes.
