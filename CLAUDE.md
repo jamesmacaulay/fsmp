@@ -53,10 +53,13 @@ it — it makes the correct path the available one.
 | `src/render.rs` | Renders the step text the agent reads (`render`, `render_json`). |
 | `src/lint.rs` | Definition linter: pure `lint(&Definition) -> Vec<Finding>` plus prose/JSON rendering. |
 | `src/store.rs` | On-disk layout, load/save, definition parse (`parse_definition`) + validation. |
-| `src/main.rs` | clap CLI: `new` / `show` / `do` / `log` (+ global `--json`). |
+| `src/main.rs` | clap CLI: `new` / `show` / `do` / `log` / `lint` / `guide` (+ global `--json`). |
+| `src/guide.rs` | `fsmp guide [topic]`: topic→text map over the `include_str!`'d `docs/`. |
+| `docs/definition.md`, `docs/driving.md` | Single-source reference docs, compiled into the binary by `src/guide.rs`. `definition.md` = the format + patterns/anti-patterns; `driving.md` = the driving primer. |
 | `.claude/skills/dev-cycle/machine-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. |
 | `.claude/skills/dev-cycle/SKILL.md` | This repo's own dev-cycle skill (dogfooded); delegates process sequencing to `fsmp` and keeps content/judgment in prose. |
-| `tests/` | Integration tests that run the built binary against the example definition. |
+| `.claude/skills/author-workflow/` | The authoring skill + `authoring-machine.yaml` (a pipeline-with-retry-gates exemplar). Helps an agent + user AUTHOR a definition; also lint/dry-run-tested. |
+| `tests/` | Integration tests that run the built binary against the example definitions (`dev_cycle.rs`, `authoring.rs`, `lint.rs`, `guide.rs`). |
 
 ## Model
 
@@ -79,12 +82,20 @@ fsmp show --id <id>
 fsmp do   <transition> --id <id> [--data k=v ...]
 fsmp log  --id <id>
 fsmp lint --def <path>
+fsmp guide [topic]
 ```
 
 `fsmp lint` parses a definition (without instantiating it) and reports every
 authoring problem at once — unknown initial state, transition to an unknown
 state, unreachable state, dead-end (non-terminal with no exits), and terminal
 state that still declares transitions — exiting non-zero if any are found.
+
+`fsmp guide [topic]` prints the embedded reference docs to stdout (`definition`
+and `driving`; no topic lists them, an unknown topic errors non-zero naming the
+valid set). The docs live in `docs/*.md` and are `include_str!`'d — that markdown
+is the single source of truth; the authoring skill cites `fsmp guide definition`
+rather than restating the grammar. `--json` does not apply to `guide` (it's prose
+to stdout).
 
 A rejected `fsmp do` (unknown transition, missing required data, or a failed
 guard) prints the reason followed by the current guidance and exits non-zero —
@@ -100,18 +111,31 @@ the rejection is itself a prompt.
   `cargo run -- new --def .claude/skills/dev-cycle/machine-definition.yaml --id demo --set bar=2`
 - Lint: `cargo clippy`; format: `cargo fmt`.
 
-When you change the engine or the dev-cycle definition
-(`.claude/skills/dev-cycle/machine-definition.yaml`), **add/adjust an integration
-test that drives it** — the two behaviors this tool exists to guarantee (can't
-skip the reviewer-response/re-assessment steps; can't `converge` before the counter
-bar is met) must stay covered.
+When you change the engine or a shipped definition
+(`.claude/skills/dev-cycle/machine-definition.yaml`,
+`.claude/skills/author-workflow/authoring-machine.yaml`), **add/adjust an
+integration test that drives it** — the behaviors these machines exist to
+guarantee must stay covered: for dev-cycle, can't skip the
+reviewer-response/re-assessment steps and can't `converge` before the counter bar
+is met (`tests/dev_cycle.rs`); for author-workflow, can't skip the
+lint/dry-run/sign-off gates and can't reach `done` without `accepted`
+(`tests/authoring.rs`).
+
+The reference docs are single-source: `docs/definition.md` and `docs/driving.md`
+are the ONLY copy, compiled into the binary via `src/guide.rs`. When behavior
+changes, edit the markdown (not a duplicate) and keep the authoring skill's
+citations of `fsmp guide definition` accurate rather than restating the grammar.
 
 ## Status / not-yet-done
 
 v1 skeleton. `fsmp lint` (definition linter: unreachable / dead-end states, plus
-the structural checks) is done. Candidates: unit-test coverage growth, `fsmp
-ls`/`defs` inspect commands, an `--mcp-stdio` mode exposing the engine over MCP
-for hard hook-enforced gating (the CLI is voluntary by design). A linter
+the structural checks) is done, as is `fsmp guide` (embedded authoring/driving
+docs) with the author-workflow skill + machine for authoring definitions with a
+user. Candidates: real man pages (`fsmp guide` is prose-to-stdout because fsmp
+installs to a non-standard `~/.fsmp/bin` prefix — man generation/install is a
+separate follow-up, issue #9), unit-test coverage growth, `fsmp ls`/`defs`
+inspect commands, an `--mcp-stdio` mode exposing the engine over MCP for hard
+hook-enforced gating (the CLI is voluntary by design). A linter
 follow-up worth noting: detecting states whose transitions are *all* permanently
 guard-blocked would need runtime guard evaluation and is deliberately out of the
 current linter's scope. `serde_yaml` 0.9 is deprecated but functional — consider

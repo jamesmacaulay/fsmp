@@ -65,6 +65,7 @@ fsmp show --id <id>                                   # current state + valid/bl
 fsmp do   <transition> --id <id> [--data k=v ...]     # attempt a transition; print the new step
 fsmp log  --id <id>                                   # transition history
 fsmp lint --def <path>                                # check a definition for authoring problems
+fsmp guide [topic]                                    # print embedded authoring/driving docs
 ```
 
 `fsmp lint` reports every authoring problem in a definition at once — unknown
@@ -72,9 +73,16 @@ initial state, transition to an unknown state, unreachable state, dead-end
 (non-terminal with no exits), and terminal state that still declares transitions
 — and exits non-zero if any are found.
 
-Add `--json` for a machine-readable view. A rejected `fsmp do` (unknown
-transition, missing required data, or a failed guard) exits non-zero and prints
-the reason followed by the current step.
+`fsmp guide` serves reference docs compiled into the binary: `fsmp guide
+definition` is the definition format plus an authoring pattern/anti-pattern
+catalog, `fsmp guide driving` is a short primer on driving any machine, and
+`fsmp guide` with no topic lists them. (The docs live in `docs/*.md` — that
+markdown is the single source of truth.)
+
+Add `--json` for a machine-readable view (it does not apply to `guide`, which is
+prose to stdout). A rejected `fsmp do` (unknown transition, missing required
+data, or a failed guard) exits non-zero and prints the reason followed by the
+current step.
 
 ## Example
 
@@ -92,6 +100,16 @@ reach `presenting` until `bar` separate reviewers have each opened with a clean
 initial verdict and reached SATISFIED — a count the machine tracks rather than
 the agent. See `.claude/skills/dev-cycle/README.md` for the division of labour
 between the skill prose and the state machine.
+
+## Authoring your own workflows
+
+To *author* a definition rather than drive one, start from `fsmp guide
+definition` (the format + patterns/anti-patterns). `.claude/skills/author-workflow/`
+is a skill that walks an agent and a user through it: design the state graph
+together, then drive a `pipeline-with-retry-gates` machine
+(`authoring-machine.yaml`) that enforces the un-skippable tail — no YAML before
+the graph is signed off, no dry-run before lint is clean, no sign-off before a
+dry-run. It's a second worked example alongside dev-cycle.
 
 ## Status
 

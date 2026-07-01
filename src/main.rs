@@ -6,6 +6,7 @@
 //! valid moves, and names the blocked ones and why. See README for the model.
 
 mod engine;
+mod guide;
 mod lint;
 mod model;
 mod render;
@@ -75,6 +76,12 @@ enum Cmd {
         #[arg(long)]
         def: PathBuf,
     },
+    /// Print embedded authoring/driving reference docs. With no topic, list the
+    /// available topics.
+    Guide {
+        /// Topic to print (e.g. `definition`, `driving`). Omit to list topics.
+        topic: Option<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -99,6 +106,7 @@ fn run(cli: &Cli) -> Result<ExitCode> {
         } => cmd_do(cli.json, transition, id, data),
         Cmd::Log { id } => cmd_log(cli.json, id),
         Cmd::Lint { def } => cmd_lint(cli.json, def),
+        Cmd::Guide { topic } => cmd_guide(topic.as_deref()),
     }
 }
 
@@ -318,6 +326,30 @@ fn cmd_lint(json: bool, def_path: &Path) -> Result<ExitCode> {
     } else {
         ExitCode::FAILURE
     })
+}
+
+/// Print an embedded reference doc. Prose to stdout — the global `--json` flag
+/// does not apply to docs. With no topic, list the topics (exit 0); an unknown
+/// topic errors to stderr naming the valid set and exits non-zero.
+fn cmd_guide(topic: Option<&str>) -> Result<ExitCode> {
+    match topic {
+        None => {
+            print!("{}", guide::list_topics());
+            Ok(ExitCode::SUCCESS)
+        }
+        Some(t) => match guide::topic_text(t) {
+            Some(text) => {
+                print!("{text}");
+                Ok(ExitCode::SUCCESS)
+            }
+            None => {
+                bail!(
+                    "unknown guide topic `{t}` (valid topics: {})",
+                    guide::topic_names()
+                );
+            }
+        },
+    }
 }
 
 /// A rejected `do`: same guidance view as `show`, prefixed with why the move

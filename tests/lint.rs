@@ -88,9 +88,25 @@ fn dev_cycle() -> String {
         .into_owned()
 }
 
+/// The shipped author-workflow definition — the second dogfooded exemplar, cited
+/// as a worked example in `fsmp guide definition`, so it must lint clean too.
+fn author_workflow() -> String {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(".claude/skills/author-workflow/authoring-machine.yaml")
+        .to_string_lossy()
+        .into_owned()
+}
+
 #[test]
 fn the_shipped_dev_cycle_definition_lints_clean() {
     run(&["lint", "--def", &dev_cycle()]).ok().has("clean");
+}
+
+#[test]
+fn the_shipped_author_workflow_definition_lints_clean() {
+    run(&["lint", "--def", &author_workflow()])
+        .ok()
+        .has("clean");
 }
 
 #[test]
