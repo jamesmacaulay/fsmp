@@ -63,8 +63,9 @@ it — it makes the correct path the available one.
   comments; JSON also read, by extension). States + `params` (set once at `new`,
   read-only) + `context` (mutable) + guarded transitions with effects.
 - **Instance** — a live run: snapshot of the definition + current state + context
-  + transition log. Stored as JSON at `~/.fsmp/<id>/instance.json`.
-  `FSMP_HOME` overrides the `~/.fsmp` root (the test suite sets it to a temp dir).
+  + transition log. Stored as JSON at `~/.fsmp/state/<id>/instance.json`.
+  `FSMP_HOME` overrides the `~/.fsmp` home dir (which holds `state/` next to
+  siblings like an installed `bin/`); the test suite sets it to a temp dir.
 
 ## Commands
 

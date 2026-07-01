@@ -1,13 +1,14 @@
 //! On-disk layout. Definitions come from wherever the caller points (version
-//! control, a skill dir); instance state lives under `~/.asm/<id>/`.
+//! control, a skill dir); instance state lives under `~/.fsmp/state/<id>/`.
 
 use crate::model::{Definition, Instance};
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-/// Root under which all instance state lives. `FSMP_HOME` overrides the default
-/// `~/.fsmp` (used by the test suite to avoid touching a real home dir).
-pub fn state_root() -> Result<PathBuf> {
+/// The fsmp home directory. Holds `state/` (instance data) alongside other
+/// siblings such as `bin/` (an installed binary on PATH). `FSMP_HOME` overrides
+/// the default `~/.fsmp` (used by the test suite to avoid touching a real home).
+pub fn home_dir() -> Result<PathBuf> {
     if let Ok(dir) = std::env::var("FSMP_HOME") {
         return Ok(PathBuf::from(dir));
     }
@@ -15,8 +16,13 @@ pub fn state_root() -> Result<PathBuf> {
     Ok(PathBuf::from(home).join(".fsmp"))
 }
 
+/// Where per-instance state folders live: `<home>/state`.
+pub fn state_dir() -> Result<PathBuf> {
+    Ok(home_dir()?.join("state"))
+}
+
 pub fn instance_dir(id: &str) -> Result<PathBuf> {
-    Ok(state_root()?.join(id))
+    Ok(state_dir()?.join(id))
 }
 
 fn instance_path(id: &str) -> Result<PathBuf> {

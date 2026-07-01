@@ -45,10 +45,11 @@ the *sequence* is enforced rather than merely suggested.
   by extension). States + `params` (set once at `new`, read-only) + `context`
   (mutable) + transitions with guards and effects.
 - **Instance** — a live run: a snapshot of the definition plus the current state,
-  context, and transition log. Stored as JSON under `~/.fsmp/<id>/`, never in
-  version control. The definition is snapshotted at `new`, so editing the source
-  file (or switching branches) doesn't mutate a running machine. `FSMP_HOME`
-  overrides the `~/.fsmp` root.
+  context, and transition log. Stored as JSON under `~/.fsmp/state/<id>/`, never
+  in version control. The definition is snapshotted at `new`, so editing the
+  source file (or switching branches) doesn't mutate a running machine.
+  `FSMP_HOME` overrides the `~/.fsmp` home directory (which holds `state/`
+  alongside siblings like an installed `bin/`).
 
 Guards are structured comparisons (`{var, op, value|param|ctx}`), all of which
 must hold (implicit AND). Effects are `set` / `incr` / `decr` / conditional.
