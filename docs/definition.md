@@ -81,6 +81,15 @@ transitions:
 | `requires` | no | `--data` keys the caller must supply when firing this transition. A missing key is rejected with a hint. |
 | `effects` | no | Context mutations applied when the transition fires. |
 
+**`requires` vs. `guards` — reach for which?** `requires` is *data the caller must
+attach to this move* (a url, an id); `guards` are *predicates over context/params
+that already exist*. They're also checked at different times and surface
+differently on a rejected `do`: `requires` is validated **first**, and a missing
+key is rejected by name ("requires data: pr_url … --data pr_url=<value>"); only
+then are `guards` evaluated, and a failing guard shows the interpolated
+`blocked_reason`. So use `requires` to force the caller to bring a value into the
+run, and `guards` to gate on values the run already holds.
+
 ### Guard grammar
 
 A guard is a single structured comparison — `<var> <op> <rhs>`. There is **no
@@ -151,6 +160,14 @@ Two kinds of variable, and confusing them is a classic bug (see anti-patterns):
 
 Both are readable by guards and `{var}` interpolation; only context is writable.
 When a context var and a param share a name, context wins on lookup.
+
+**Values are scalars.** Everywhere a value appears — a `params`/`context` seed, a
+guard `value:`, an effect `to:`, `--data` on a `do` — it is a single scalar:
+boolean, integer, or string (an unquoted `true`/`false` is a boolean, a bare
+integer is an int, everything else is a string). Lists and maps are **not**
+supported; a `context:` or `params:` entry written as a YAML list or map is
+rejected at parse time (at `new`/`lint`), not silently coerced. Model
+"multiple things" with multiple named variables, not a collection in one.
 
 ### `{var}` interpolation
 
