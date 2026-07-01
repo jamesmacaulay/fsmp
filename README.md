@@ -93,9 +93,22 @@ Possible next steps: a definition linter (unreachable / dead-end states), `ls` /
 over MCP, where PreToolUse hooks could turn the voluntary sequencing into hard
 gating.
 
-## Build
+## Build & install
 
 ```
-cargo build      # binary at target/debug/fsmp
-cargo test
+make build       # debug build (target/debug/fsmp)
+make test        # unit + integration tests
+make check       # fmt-check + clippy + test
+make install     # release build, installs to ~/.fsmp/bin/fsmp
 ```
+
+`make install` mirrors the runtime layout — the binary lands in `~/.fsmp/bin/`
+next to `~/.fsmp/state/`. Add it to your PATH:
+
+```
+export PATH="$HOME/.fsmp/bin:$PATH"
+```
+
+`FSMP_HOME` relocates both the binary and state (`make install FSMP_HOME=...`).
+Run `make help` for the full target list; plain `cargo build` / `cargo test` also
+work.
