@@ -128,7 +128,11 @@ pub fn lint(def: &Definition) -> Vec<Finding> {
 /// BFS the set of state names reachable from `initial` by following transition
 /// `to:` edges (guards ignored — a guarded edge still makes its target reachable
 /// in principle). Only traverses edges whose target is a defined state, so a
-/// bogus `to:` never pollutes the reachable set. Caller ensures `initial` exists.
+/// bogus `to:` never pollutes the reachable set. A terminal state's out-edges are
+/// NOT traversed: `do` refuses moves from a terminal state, so those edges are
+/// dead code (and separately flagged `TerminalWithTransitions`), and a state
+/// reachable *only* through one is genuinely unreachable at runtime. Caller
+/// ensures `initial` exists.
 fn reachable_from_initial(def: &Definition) -> HashSet<String> {
     let mut visited = HashSet::new();
     let mut queue = VecDeque::new();
@@ -136,6 +140,9 @@ fn reachable_from_initial(def: &Definition) -> HashSet<String> {
     queue.push_back(def.initial.clone());
     while let Some(name) = queue.pop_front() {
         if let Some(state) = def.states.get(&name) {
+            if state.terminal {
+                continue;
+            }
             for t in state.transitions.values() {
                 if def.states.contains_key(&t.to) && visited.insert(t.to.clone()) {
                     queue.push_back(t.to.clone());
@@ -237,9 +244,9 @@ states:
 
     #[test]
     fn flags_an_unreachable_state() {
-        // `b` is defined but nothing reaches it (a is terminal-less dead end? no —
-        // a has a self-transition so it is not a dead end, keeping this test to
-        // exactly the unreachable finding).
+        // `b` is defined but nothing reaches it. `a` has a self-loop, so it is
+        // not a dead end — keeping this case to exactly the one unreachable
+        // finding.
         let d = def("\
 name: t
 initial: a
@@ -372,6 +379,35 @@ states:
             target: "ghost".into()
         }));
         assert!(f.contains(&Finding::UnreachableState { state: "c".into() }));
+    }
+
+    #[test]
+    fn a_state_reachable_only_through_a_terminal_states_dead_edge_is_unreachable() {
+        // `do` never fires a transition out of a terminal state, so `t`'s edge to
+        // `x` is dead code. Reachability must not traverse it: `x` is reachable
+        // ONLY through that dead edge, so it is genuinely unreachable at runtime.
+        // `t` is independently flagged TerminalWithTransitions.
+        let d = def("\
+name: t
+initial: a
+states:
+  a:
+    transitions:
+      go: { to: t }
+  t:
+    terminal: true
+    transitions:
+      dead: { to: x }
+  x:
+    terminal: true
+");
+        let f = lint(&d);
+        assert!(
+            f.contains(&Finding::UnreachableState { state: "x".into() }),
+            "x should be flagged unreachable, got: {f:?}"
+        );
+        assert!(f.contains(&Finding::TerminalWithTransitions { state: "t".into() }));
+        assert_eq!(f.len(), 2);
     }
 
     #[test]
