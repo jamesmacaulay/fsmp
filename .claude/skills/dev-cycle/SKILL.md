@@ -45,7 +45,7 @@ Pick **bar=2** by default; **bar=1** only for low-risk *mechanical* work whose
 correctness the compiler/test-suite proves on its own (a pure rename, a
 scope/dependency rename, a doc-only change).
 
-Give `--id` a **descriptive** value — default `<project-name>-<github-issue>` (e.g.
+Give `--id` a **descriptive** value — default `<project>-<issue>` (e.g.
 `fsmp-42`). It ties the run to its issue, keeps `~/.fsmp/state/<id>/` legible in
 `fsmp show`/`log`, and avoids collisions. When there's no issue number, use something
 similarly descriptive (`<project>-<short-slug>`, e.g. `fsmp-lint-linter`) — never a
@@ -233,7 +233,9 @@ build/cache dirs; use a fresh browser profile.)
 - **Agents return one-line verdicts; PR comments hold the substance.** You see only
   `VERDICT` / `DONE` lines plus URLs. The implementer reads the reviewer's comment
   directly off the PR; the next fresh reviewer reads the whole thread directly. None of
-  it routes through you — don't summarize or relay review findings.
+  it routes through you — don't summarize or relay review findings. This covers reviewer
+  **sign-offs** too, not just findings: the re-assessment `SATISFIED` comment lands on
+  the PR so the thread ends on a visible approval a human or the next reviewer can see.
 - **No polling. Anywhere.** Sequence on the harness's completion notifications. Don't
   ask an agent to poll another, and don't poll them yourself.
 - **Read the PR on idle.** Reviewers reliably *write* their verdict in the PR comment
