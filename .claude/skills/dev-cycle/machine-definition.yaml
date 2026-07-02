@@ -3,16 +3,18 @@
 # This state-machine definition owns the PROCESS SEQUENCE for the dev-cycle
 # skill (SKILL.md beside this file). The orchestrator agent does not track
 # "what's next" from memory — it drives this machine with `fsmp` and does what
-# each returned step says. The machine makes the two habitual slips impossible:
+# each returned step says. The machine makes the three habitual slips impossible:
 # (1) skipping the implementer's response to a reviewer's notes — INCLUDING
-# non-blocking ones — and (2) not routing the fix back to the SAME reviewer for
-# re-assessment. Convergence ("N clean-initial reviewers") is a counter gate, so
-# the agent cannot present early by miscount.
+# non-blocking ones; (2) not routing the fix back to the SAME reviewer for
+# re-assessment; (3) presenting straight from review convergence without the
+# manual verification capstone. Convergence ("N clean-initial reviewers") is a
+# counter gate, so the agent cannot present early by miscount — and convergence
+# is not done: `presenting` is reachable only through `verifying`.
 #
 # Installed into a project at .claude/skills/dev-cycle/machine-definition.yaml,
 # the skill runs:
 #   fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
-#     --id <project>-<issue> --set bar=<1|2>
+#     --id <project>-<issue> --set bar=<1|2> [--set capstone=false]
 name: dev-cycle
 description: >-
   Drive a coherent unit of work from brief to operator-mergeable PR via a
@@ -22,6 +24,7 @@ description: >-
 params:
   bar: 2            # clean-initial reviewers required to converge (drop to 1 for pure mechanical work)
   round_ceiling: 8  # escalate rather than loop past this many reviewer rounds
+  capstone: true    # post-convergence manual verification pass; set false at `new` ONLY for work with nothing user-observable to drive
 
 # Live run state.
 context:
@@ -29,6 +32,7 @@ context:
   round_count: 1           # current reviewer round
   initial_was_clean: false # did THIS round's reviewer open with zero blocking?
   pr_url: ""               # filled in when the implementer opens the PR
+  findings_url: ""         # the verification-findings PR comment, when the capstone fails
 
 initial: triage
 
@@ -144,9 +148,10 @@ states:
       This reviewer's round is done. Convergence: {clean_initial_count} of {bar}
       clean-initial reviewers so far (round {round_count} of {round_ceiling}).
 
-      If the bar is met, `converge` to presentation. Otherwise spawn the NEXT
-      fresh reviewer with `next_round`. A clean initial from ONE reviewer is not
-      convergence — you need {bar} SEPARATE reviewers who each opened clean.
+      If the bar is met, `converge` to the verification capstone. Otherwise
+      spawn the NEXT fresh reviewer with `next_round`. A clean initial from ONE
+      reviewer is not convergence — you need {bar} SEPARATE reviewers who each
+      opened clean.
     transitions:
       next_round:
         to: awaiting_review
@@ -161,8 +166,8 @@ states:
           - { incr: round_count }
           - { set: initial_was_clean, to: false }
       converge:
-        to: presenting
-        when: the bar is met — every reviewer satisfied; present for operator merge
+        to: verifying
+        when: the bar is met — every reviewer satisfied; on to the verification capstone
         blocked_reason: >-
           needs {bar} clean-initial reviewers, each subsequently SATISFIED;
           currently {clean_initial_count}
@@ -172,12 +177,93 @@ states:
         to: escalated
         when: round ceiling hit or a blocker recurs across rounds
 
+  verifying:
+    guidance: |
+      Phase 2.5 — verification capstone. Convergence is NOT done: drive a
+      manual verification pass of PR {pr_url} yourself, appropriate to the work
+      (browser, live system, real lifecycle events) — exercising the
+      user-observable and lifecycle-sensitive behavior the headless suite
+      cannot fire.
+
+        • nothing found → post ONE PR comment recording what you drove and what
+          you observed, then fire `verification_passed`
+        • defects found → post ONE PR comment with every finding: concrete
+          evidence, plus forensics on WHY the automated tests were blind to it.
+          Then fire `verification_failed` with that comment's url.
+
+      `verification_waived` is open only when this run was created with
+      capstone=false — a Phase-0 call, not one to make now because verification
+      feels unnecessary.
+    transitions:
+      verification_passed:
+        to: presenting
+        when: the manual pass found nothing — observations recorded on the PR
+      verification_failed:
+        to: fixing
+        requires: [findings_url]
+        when: the manual pass surfaced defects — findings posted as ONE PR comment
+        blocked_reason: >-
+          round ceiling {round_ceiling} reached — escalate instead of opening
+          another fix round
+        guards:
+          - { var: round_count, op: lt, param: round_ceiling }
+        effects:
+          - { incr: round_count }
+      verification_waived:
+        to: presenting
+        when: capstone=false was set at `new` — nothing user-observable to drive
+        blocked_reason: >-
+          this run was created with capstone=true, so the verification pass is
+          mandatory — run it, or escalate if you cannot
+        guards:
+          - { var: capstone, op: eq, value: false }
+      escalate:
+        to: escalated
+        when: verification needs infra or a decision only the operator has
+
+  fixing:
+    guidance: |
+      SendMessage the PERSISTENT implementer (never a fresh spawn) to address
+      the verification findings at {findings_url}: fix each defect with code
+      plus a regression test where one is possible, state WHY the existing
+      suite missed it, reply on the PR, push, and return DONE.
+    transitions:
+      fix_pushed:
+        to: awaiting_fix_review
+        when: implementer returned DONE with the fix pushed
+      escalate:
+        to: escalated
+        when: a build/test failure the implementer cannot resolve
+
+  awaiting_fix_review:
+    guidance: |
+      Round {round_count}. Spawn a FRESH reviewer scoped to the FIX-ROUND diff
+      only — prior convergence stands for the untouched rest of PR {pr_url}.
+      Same recording rule as round reviewers: the verdict must land as a PR
+      comment — a sign-off comment for SATISFIED, findings for CHANGES — before
+      you fire the transition.
+
+        • SATISFIED → fire `fix_satisfied`, then RE-VERIFY: a reviewed fix has
+          not passed the capstone yet
+        • CHANGES   → fire `fix_changes` (loops back to the implementer)
+    transitions:
+      fix_satisfied:
+        to: verifying
+        when: fix reviewer satisfied, sign-off posted on the PR — re-run the verification pass
+      fix_changes:
+        to: fixing
+        when: the fix reviewer found problems in the fix-round diff
+      escalate:
+        to: escalated
+        when: the same defect survives repeated fix rounds
+
   presenting:
     guidance: |
       Phase 3 — shallow check, then PRESENT. Confirm: gate green on HEAD;
       every test-plan box ticked or annotated; {bar} clean-initial reviewers each
-      reached SATISFIED with every non-blocking note addressed or justified. Then
-      present PR {pr_url} with a merge-readiness summary.
+      reached SATISFIED with every non-blocking note addressed or justified; the
+      verification capstone passed (or was waived at `new`). Then present PR
+      {pr_url} with a merge-readiness summary.
 
       You NEVER self-merge. The operator clicks merge — fire `operator_merged`
       only after they have.

@@ -98,8 +98,9 @@ fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml --id myproj-1234
 and then drives `fsmp do <transition>` as the cycle progresses. The agent can't
 reach `presenting` until `bar` separate reviewers have each opened with a clean
 initial verdict and reached SATISFIED — a count the machine tracks rather than
-the agent. See `.claude/skills/dev-cycle/README.md` for the division of labour
-between the skill prose and the state machine.
+the agent — and even then only through a manual-verification state
+(convergence ≠ done). See `.claude/skills/dev-cycle/README.md` for the division
+of labour between the skill prose and the state machine.
 
 ## Authoring your own workflows
 

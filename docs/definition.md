@@ -201,7 +201,7 @@ can't present early by miscounting, because it isn't doing the counting.
 
 ```yaml
 converge:
-  to: presenting
+  to: verifying
   blocked_reason: >-
     needs {bar} clean-initial reviewers, each subsequently SATISFIED;
     currently {clean_initial_count}
@@ -225,6 +225,19 @@ Every state where the machine is waiting on an agent or human should offer an
 legal move and the agent either wedges or fabricates a transition. The hatch
 makes "I'm blocked, hand it to the operator" a first-class, recorded outcome
 rather than an off-ramp the agent has to invent.
+
+### A Phase-0 param gating a shortcut edge
+
+When a workflow has a step that is mandatory for most runs but genuinely
+meaningless for some, don't leave the skip to mid-run judgment — make it a
+set-once param and guard the shortcut on it. dev-cycle's verification capstone
+is the case: `converge` always lands in `verifying`, and the
+`verification_waived` edge to `presenting` is guarded on
+`{ var: capstone, op: eq, value: false }`. Guard lookup falls back from context
+to params, so the guard reads the knob fixed at `new`. A run created with
+`capstone=true` shows the waive as blocked-with-reason; the agent cannot talk
+itself into skipping the step *now* because that decision was only available at
+instantiation.
 
 ### Pipeline with retry gates
 
@@ -335,9 +348,10 @@ prompt always states the current truth.
 `.claude/skills/dev-cycle/machine-definition.yaml` is a complete, dogfooded
 machine. Reading it top to bottom, here is where each pattern lives:
 
-- **params vs. context.** `bar` and `round_ceiling` are `params` (set at `new`,
-  read-only). `clean_initial_count`, `round_count`, `initial_was_clean`, and
-  `pr_url` are `context` — everything that moves during the run.
+- **params vs. context.** `bar`, `round_ceiling`, and `capstone` are `params`
+  (set at `new`, read-only). `clean_initial_count`, `round_count`,
+  `initial_was_clean`, `pr_url`, and `findings_url` are `context` — everything
+  that moves during the run.
 - **`requires` + captured data.** `pr_opened` declares `requires: [pr_url]`; the
   url the caller supplies with `--data pr_url=…` merges into context and is then
   interpolated into later guidance ("reviewing PR {pr_url}").
@@ -357,6 +371,13 @@ machine. Reading it top to bottom, here is where each pattern lives:
   non-blocking note still owes a response) → `awaiting_reassessment` → back to the
   implementer on `reviewer_changes`, forward on `reviewer_satisfied`. There is
   deliberately no edge from `awaiting_review` straight to `presenting`.
+- **The verification capstone.** `converge` lands in `verifying`, not
+  `presenting` — the manual verification pass is a state, so it can't be
+  omitted. `verification_failed` (which `requires: [findings_url]` and counts
+  against `round_ceiling`) opens a narrow fix loop — `fixing` →
+  `awaiting_fix_review` — whose only exit forward is back into `verifying`;
+  `clean_initial_count` is untouched throughout, so prior convergence stands.
+  The `verification_waived` shortcut is the param-guarded edge described above.
 - **The escalate hatch.** Every waiting state offers `escalate → escalated`
   (a terminal state), so a stuck run always has a legal, recorded way out.
 - **Terminal states.** `merged` and `escalated` are `terminal: true` with final
