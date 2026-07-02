@@ -16,10 +16,11 @@ state-machine definition ships beside this skill (`machine-definition.yaml`). Yo
 create a machine instance at the start, then on every turn you do what its
 guidance says and record what happened with `fsmp do`. This makes the steps an
 orchestrator habitually skips *impossible* to skip — above all, responding to
-every reviewer note (even non-blocking ones) and re-engaging the **same** reviewer
-to re-assess before a round ends. **This skill covers the WORK at each step**
-(briefs, templates, review DNA, judgment); **the machine covers WHICH step and
-WHEN.**
+every reviewer note (even non-blocking ones), re-engaging the **same** reviewer
+to re-assess before a round ends, and running the **verification capstone**
+between review convergence and presenting. **This skill covers the WORK at each
+step** (briefs, templates, review DNA, judgment); **the machine covers WHICH
+step and WHEN.**
 
 If you are not yet context-rich about this work — you've just been handed a cold
 issue — build that context first (read the issue, the relevant code, memory, and
@@ -38,12 +39,18 @@ GitHub issue exist, and chosen the review bar, run:
 
 ```
 fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
-  --id <project>-<issue> --set bar=<1|2>
+  --id <project>-<issue> --set bar=<1|2> [--set capstone=false]
 ```
 
 Pick **bar=2** by default; **bar=1** only for low-risk *mechanical* work whose
 correctness the compiler/test-suite proves on its own (a pure rename, a
 scope/dependency rename, a doc-only change).
+
+Leave **capstone=true** (the default) whenever the work has user-observable or
+lifecycle-sensitive behavior; set **capstone=false** only for work with nothing
+to verify manually (typically the same bar=1 class: docs-only, pure mechanical).
+This is a Phase-0 call — mid-run, the machine will not let you waive
+verification you committed to at `new`.
 
 Give `--id` a **descriptive** value — default `<project>-<issue>` (e.g.
 `fsmp-42`). It ties the run to its issue, keeps `~/.fsmp/state/<id>/` legible in
@@ -81,6 +88,12 @@ state's guidance says the same in prose):
 | Same reviewer re-assessed: `CHANGES` | `reviewer_changes` |
 | Machine offers it (bar met) | `converge` |
 | Bar not yet met — start the next fresh reviewer | `next_round` |
+| Manual verification pass clean — observations posted on the PR | `verification_passed` |
+| Manual verification found defects — findings comment posted | `verification_failed --data findings_url=<url>` |
+| Nothing to verify manually (only if created with capstone=false) | `verification_waived` |
+| Implementer returned `DONE` on a verification fix | `fix_pushed` |
+| Fresh fix reviewer: `SATISFIED` (sign-off posted) | `fix_satisfied` |
+| Fresh fix reviewer: `CHANGES` | `fix_changes` |
 | Operator merged | `operator_merged` |
 | Stuck: recurring blocker / round ceiling / needs an operator decision | `escalate` |
 
@@ -228,6 +241,28 @@ Anything new you notice at re-assessment (including a fresh non-blocking note) r
 run a dev server on a port the operator's server holds; don't write into the operator's
 build/cache dirs; use a fresh browser profile.)
 
+## Verification capstone (convergence ≠ done)
+
+When the bar is met, `converge` lands you in `verifying`, not `presenting`. **You,
+the orchestrator, drive this pass yourself** — it is not delegated to the
+implementer, whose blind spots are the ones being checked. Exercise the change the
+way its users and its runtime will: browser flows, live-system behavior, real
+lifecycle events (connect/disconnect, restart, concurrent clients), actual wire
+payloads — the categories a headless suite never fires.
+
+- **Pass** → post one PR comment recording what you drove and what you observed,
+  then `verification_passed`.
+- **Defects** → post ONE PR comment with every finding: concrete evidence, plus
+  forensics on why the automated tests were blind to each. Fire
+  `verification_failed --data findings_url=<comment-url>`.
+
+The fix loop that follows is deliberately narrow: SendMessage the **persistent
+implementer** to fix (with regression tests where possible), then a **fresh
+reviewer scoped to the fix-round diff only** — prior convergence stands for the
+untouched rest — whose verdict must land as a recorded PR comment (sign-off for
+SATISFIED, findings for CHANGES), exactly like round reviewers. A satisfied fix
+review returns you to `verifying`: the fix has been reviewed, not yet verified.
+
 ## Coordination — what keeps it cheap and reliable
 
 - **Agents return one-line verdicts; PR comments hold the substance.** You see only
@@ -266,7 +301,11 @@ spec change.
   your own shallow gate-green + diff check.
 - Convergence requires the bar's number of clean-**initial** reviewers, each then
   `SATISFIED`; a blocker-then-fixed reviewer does not count.
-- No path to present/merge before convergence.
+- No path to present/merge before convergence — and none from convergence either:
+  `presenting` is reachable only through the `verifying` capstone (waivable only
+  by the capstone=false Phase-0 param).
+- A failed verification's fix must pass a fresh reviewer AND re-verification
+  before presenting.
 
 **Still your judgment — the machine can't catch these:**
 - **Resume the implementer with `SendMessage`, never a second `Agent` spawn.**
@@ -276,6 +315,8 @@ spec change.
   in PR comments.
 - **Aim each follow-up reviewer at the prior reviewers' least-covered dimensions**, while
   still re-running the full DNA.
+- **What the capstone actually drives** — the machine forces the `verifying`
+  state; only you can make the manual pass exercise what the tests can't.
 - **Never self-merge** — the operator merges.
 - **Name the subtle traps in the brief** — a green test sails past exactly what you
   already know to watch for.

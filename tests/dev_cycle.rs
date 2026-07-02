@@ -1,7 +1,8 @@
 //! Integration tests: drive the real `fsmp` binary against the shipped
-//! dev-cycle definition. These lock in the two behaviours the tool exists to
-//! guarantee — you cannot skip the reviewer response/re-assessment steps, and
-//! you cannot `converge` before the clean-initial counter bar is met.
+//! dev-cycle definition. These lock in the behaviours the tool exists to
+//! guarantee — you cannot skip the reviewer response/re-assessment steps, you
+//! cannot `converge` before the clean-initial counter bar is met, and
+//! `presenting` is reachable only through the `verifying` capstone.
 //!
 //! Each test runs the compiled binary via `CARGO_BIN_EXE_fsmp` with `FSMP_HOME`
 //! pointed at a per-test temp dir, so nothing touches a real `~/.fsmp`.
@@ -138,7 +139,11 @@ fn happy_path_two_clean_initials_reaches_merged() {
     e.run(&["do", "verdict_clean", "--id", "m"])
         .ok()
         .has("2 of 2");
+    // Convergence lands in the verification capstone, NOT presenting.
     e.run(&["do", "converge", "--id", "m"])
+        .ok()
+        .has("state: verifying");
+    e.run(&["do", "verification_passed", "--id", "m"])
         .ok()
         .has("state: presenting");
     e.run(&["do", "operator_merged", "--id", "m"])
@@ -198,7 +203,132 @@ fn converge_is_gated_on_the_counter_not_on_round_count() {
         .has("1 of 1");
     e.run(&["do", "converge", "--id", "m"])
         .ok()
+        .has("state: verifying");
+}
+
+/// Drive a bar=1 machine (plus any extra `--set` overrides) to `verifying`.
+fn to_verifying(name: &str, extra_sets: &[&str]) -> Env {
+    let e = Env::new(name);
+    let f = fixture();
+    let mut args = vec!["new", "--def", &f, "--id", "m", "--set", "bar=1"];
+    for s in extra_sets {
+        args.push("--set");
+        args.push(s);
+    }
+    e.run(&args).ok();
+    e.run(&["do", "brief_ready", "--id", "m"]).ok();
+    e.run(&[
+        "do",
+        "pr_opened",
+        "--id",
+        "m",
+        "--data",
+        "pr_url=https://x/1",
+    ])
+    .ok();
+    e.run(&["do", "verdict_clean", "--id", "m"]).ok();
+    e.run(&["do", "converge", "--id", "m"])
+        .ok()
+        .has("state: verifying");
+    e
+}
+
+#[test]
+fn presenting_is_reachable_only_through_verifying() {
+    // The issue-11 invariant: no path from round_complete to presenting except
+    // through the capstone.
+    let e = to_awaiting_review("onlyverify", "1");
+    e.run(&["do", "verdict_clean", "--id", "m"]).ok();
+    // round_complete offers no direct move into presentation.
+    e.run(&["do", "verification_passed", "--id", "m"])
+        .fail()
+        .has("not a valid transition");
+    e.run(&["do", "converge", "--id", "m"])
+        .ok()
+        .has("state: verifying");
+    // And from verifying you cannot skip ahead to the merge step.
+    e.run(&["do", "operator_merged", "--id", "m"])
+        .fail()
+        .has("not a valid transition");
+}
+
+#[test]
+fn verification_failure_loops_through_fix_review_and_reverifies() {
+    let e = to_verifying("verifyfail", &[]);
+    // The findings PR-comment url is required evidence for a failure.
+    e.run(&["do", "verification_failed", "--id", "m"])
+        .fail()
+        .has("requires data: findings_url");
+    e.run(&[
+        "do",
+        "verification_failed",
+        "--id",
+        "m",
+        "--data",
+        "findings_url=https://x/1#issuecomment-9",
+    ])
+    .ok()
+    .has("state: fixing")
+    .has("https://x/1#issuecomment-9");
+    e.run(&["do", "fix_pushed", "--id", "m"])
+        .ok()
+        .has("state: awaiting_fix_review")
+        .has("FRESH reviewer");
+    // The fix reviewer can bounce the fix back to the implementer.
+    e.run(&["do", "fix_changes", "--id", "m"])
+        .ok()
+        .has("state: fixing");
+    e.run(&["do", "fix_pushed", "--id", "m"]).ok();
+    // A satisfied fix review does NOT present — it re-enters verification.
+    e.run(&["do", "fix_satisfied", "--id", "m"])
+        .ok()
+        .has("state: verifying");
+    // Prior convergence stands: the clean-initial counter was never touched.
+    e.run(&["show", "--id", "m", "--json"])
+        .ok()
+        .has("\"clean_initial_count\": 1");
+    e.run(&["do", "verification_passed", "--id", "m"])
+        .ok()
         .has("state: presenting");
+}
+
+#[test]
+fn waive_is_blocked_unless_capstone_was_disabled_at_new() {
+    // Default capstone=true: the waive edge is visible but guard-blocked.
+    let e = to_verifying("waiveblocked", &[]);
+    e.run(&["do", "verification_waived", "--id", "m"])
+        .fail()
+        .has("capstone=true");
+    e.run(&["show", "--id", "m"])
+        .ok()
+        .has("Blocked from here")
+        .has("verification_waived");
+
+    // capstone=false at `new` (the Phase-0 call): waive is open.
+    let e = to_verifying("waiveopen", &["capstone=false"]);
+    e.run(&["do", "verification_waived", "--id", "m"])
+        .ok()
+        .has("state: presenting");
+}
+
+#[test]
+fn verification_failed_is_blocked_at_the_round_ceiling() {
+    // With the ceiling already reached, another fix round may not open;
+    // escalate is the remaining hatch.
+    let e = to_verifying("verifyceiling", &["round_ceiling=1"]);
+    e.run(&[
+        "do",
+        "verification_failed",
+        "--id",
+        "m",
+        "--data",
+        "findings_url=https://x/1#c",
+    ])
+    .fail()
+    .has("round ceiling 1 reached");
+    e.run(&["do", "escalate", "--id", "m"])
+        .ok()
+        .has("state: escalated");
 }
 
 #[test]

@@ -18,8 +18,9 @@ escalation) in the skill prose.
 |---|---|
 | What step am I on; what's valid next; did I skip anything | `fsmp` (the state machine) |
 | Convergence counting ("2 clean-initial reviewers") | `fsmp` (counter gate) |
+| Verification-capstone sequencing (convergence ≠ present) | `fsmp` (param-guarded state) |
 | How to write the brief; the agent prompts; the review DNA | the skill prose |
-| Whether a review was truly clean; escalation judgment | the orchestrator |
+| Whether a review was truly clean; what the manual pass drives; escalation judgment | the orchestrator |
 
 `fsmp` enforces the *sequence*, not the *content* — it can't tell whether a
 reported transition is truthful, only that the agent passes through the required
