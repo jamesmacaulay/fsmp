@@ -1,0 +1,49 @@
+# CI, hardened against the workflow supply-chain attack patterns:
+# - every third-party action is pinned to a full commit SHA (a moved tag
+#   cannot swap code under us) — and there is only one, actions/checkout;
+#   the Rust toolchain comes from the runner's own rustup, not an action
+# - the workflow token is read-only and no secrets exist here at all
+# - no pull_request_target, and no `${{ }}` interpolation of untrusted
+#   strings into run: steps
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly RustSec advisory sweep — advisories land without code changes.
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Update stable toolchain
+        run: rustup update --no-self-update stable && rustup default stable
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - name: Verify the crate packages and builds standalone
+        run: cargo publish --dry-run
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Update stable toolchain
+        run: rustup update --no-self-update stable && rustup default stable
+      - name: Install cargo-audit
+        # Built from source off crates.io rather than pulling a third-party
+        # action or prebuilt binary; --locked pins its dependency tree.
+        run: cargo install cargo-audit --locked
+      - run: cargo audit
