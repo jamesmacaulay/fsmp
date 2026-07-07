@@ -83,16 +83,16 @@ fn write_def_ext(name: &str, ext: &str, contents: &str) -> String {
 /// The shipped dev-cycle definition — dogfooding the guardrail we ship.
 fn dev_cycle() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(".claude/skills/dev-cycle/machine-definition.yaml")
+        .join(".claude/skills/dev-cycle/fsmp-definition.yaml")
         .to_string_lossy()
         .into_owned()
 }
 
-/// The shipped author-workflow definition — the second dogfooded exemplar, cited
+/// The shipped author-fsmp-workflow definition — the second dogfooded exemplar, cited
 /// as a worked example in `fsmp guide definition`, so it must lint clean too.
 fn author_workflow() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(".claude/skills/author-workflow/authoring-machine.yaml")
+        .join(".claude/skills/author-fsmp-workflow/fsmp-definition.yaml")
         .to_string_lossy()
         .into_owned()
 }

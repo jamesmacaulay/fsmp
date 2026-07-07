@@ -15,7 +15,7 @@ use std::process::Command;
 /// correctly.
 fn fixture() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(".claude/skills/dev-cycle/machine-definition.yaml")
+        .join(".claude/skills/dev-cycle/fsmp-definition.yaml")
         .to_string_lossy()
         .into_owned()
 }

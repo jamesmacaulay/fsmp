@@ -1,5 +1,5 @@
 //! Integration tests: drive the real `fsmp` binary against the shipped
-//! author-workflow definition. Per CLAUDE.md's rule for a new machine, these
+//! author-fsmp-workflow definition. Per CLAUDE.md's rule for a new machine, these
 //! lock in the gates the pipeline exists to enforce — you cannot skip lint, the
 //! dry-run, or the user sign-off; a failed stage loops back to `drafting`;
 //! `done` is reachable only through `accepted`.
@@ -10,12 +10,12 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-/// The author-workflow definition that backs this repo's authoring skill.
+/// The author-fsmp-workflow definition that backs this repo's authoring skill.
 /// Driving it directly means the exemplar we ship is guaranteed to load and
 /// sequence correctly.
 fn fixture() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(".claude/skills/author-workflow/authoring-machine.yaml")
+        .join(".claude/skills/author-fsmp-workflow/fsmp-definition.yaml")
         .to_string_lossy()
         .into_owned()
 }

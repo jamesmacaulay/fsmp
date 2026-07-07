@@ -12,7 +12,7 @@ adversarial reviewer per round**, sequenced by **you, the context-rich session
 that invoked this skill**.
 
 **The process sequence is enforced by `fsmp`, not by your memory.** A
-state-machine definition ships beside this skill (`machine-definition.yaml`). You
+state-machine definition ships beside this skill (`fsmp-definition.yaml`). You
 create a machine instance at the start, then on every turn you do what its
 guidance says and record what happened with `fsmp do`. This makes the steps an
 orchestrator habitually skips *impossible* to skip — above all, responding to
@@ -38,7 +38,7 @@ authored the kickoff brief (anatomy below), ensured the shared worktree and the
 GitHub issue exist, and chosen the review bar, run:
 
 ```
-fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
+fsmp new --def .claude/skills/dev-cycle/fsmp-definition.yaml \
   --id <project>-<issue> --set bar=<1|2> [--set capstone=false]
 ```
 

@@ -88,11 +88,11 @@ current step.
 
 `.claude/skills/dev-cycle/` is a worked example that this repo also dogfoods: a
 skill (`SKILL.md`) that delegates its process sequencing to `fsmp`, plus the
-`machine-definition.yaml` it drives. The skill points its orchestrator agent at
+`fsmp-definition.yaml` it drives. The skill points its orchestrator agent at
 the definition:
 
 ```
-fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml --id myproj-1234 --set bar=2
+fsmp new --def .claude/skills/dev-cycle/fsmp-definition.yaml --id myproj-1234 --set bar=2
 ```
 
 and then drives `fsmp do <transition>` as the cycle progresses. The agent can't
@@ -105,17 +105,17 @@ of labour between the skill prose and the state machine.
 ## Authoring your own workflows
 
 To *author* a definition rather than drive one, start from `fsmp guide
-definition` (the format + patterns/anti-patterns). `.claude/skills/author-workflow/`
+definition` (the format + patterns/anti-patterns). `.claude/skills/author-fsmp-workflow/`
 is a skill that walks an agent and a user through it: design the state graph
 together, then drive a `pipeline-with-retry-gates` machine
-(`authoring-machine.yaml`) that enforces the un-skippable tail — no YAML before
+(`fsmp-definition.yaml`) that enforces the un-skippable tail — no YAML before
 the graph is signed off, no dry-run before lint is clean, no sign-off before a
 dry-run. It's a second worked example alongside dev-cycle.
 
 ## Status
 
 v1. `new` / `show` / `do` / `log` work, and the dev-cycle definition drives a full
-run (see `.claude/skills/dev-cycle/machine-definition.yaml`). Tested with
+run (see `.claude/skills/dev-cycle/fsmp-definition.yaml`). Tested with
 `cargo test` (unit tests inline; integration tests run the binary against that
 definition).
 

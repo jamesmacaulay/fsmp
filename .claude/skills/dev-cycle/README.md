@@ -8,7 +8,7 @@ escalation) in the skill prose.
 - `SKILL.md` — the skill. Its "Driving the cycle with fsmp" section replaces the
   process-flow logic a monolithic skill would spell out; the machine owns *which
   step and when*.
-- `machine-definition.yaml` — the state machine `SKILL.md` drives. This is the
+- `fsmp-definition.yaml` — the state machine `SKILL.md` drives. This is the
   canonical definition; the fsmp integration tests (`tests/dev_cycle.rs`) run
   against this exact file, so the shipped guardrail is verified.
 
@@ -31,5 +31,5 @@ states in order.
 Copy this directory to the other project's `.claude/skills/dev-cycle/`, adapt the
 pre-push gate and any project-specific wording in `SKILL.md`, and ensure `fsmp` is
 on PATH. The `fsmp new --def …` command in `SKILL.md` already points at
-`.claude/skills/dev-cycle/machine-definition.yaml`, so it works unchanged once the
+`.claude/skills/dev-cycle/fsmp-definition.yaml`, so it works unchanged once the
 directory is in place.

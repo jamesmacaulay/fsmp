@@ -11,9 +11,9 @@
 # counter gate, so the agent cannot present early by miscount — and convergence
 # is not done: `presenting` is reachable only through `verifying`.
 #
-# Installed into a project at .claude/skills/dev-cycle/machine-definition.yaml,
+# Installed into a project at .claude/skills/dev-cycle/fsmp-definition.yaml,
 # the skill runs:
-#   fsmp new --def .claude/skills/dev-cycle/machine-definition.yaml \
+#   fsmp new --def .claude/skills/dev-cycle/fsmp-definition.yaml \
 #     --id <project>-<issue> --set bar=<1|2> [--set capstone=false]
 name: dev-cycle
 description: >-

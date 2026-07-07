@@ -1,6 +1,6 @@
-# author-workflow — the pipeline that guards HOW an fsmp definition gets authored.
+# author-fsmp-workflow — the pipeline that guards HOW an fsmp definition gets authored.
 #
-# This machine is driven by the author-workflow skill (SKILL.md beside this
+# This machine is driven by the author-fsmp-workflow skill (SKILL.md beside this
 # file). Elicitation and graph design happen conversationally with the user
 # BEFORE the machine starts; the machine then enforces the un-skippable tail:
 # no YAML before the graph is signed off; no dry-run before lint is clean; no
@@ -10,11 +10,11 @@
 # It doubles as a second worked example (alongside dev-cycle) of the
 # pipeline-with-retry-gates shape — see `fsmp guide definition`.
 #
-# Installed at .claude/skills/author-workflow/authoring-machine.yaml, the skill
+# Installed at .claude/skills/author-fsmp-workflow/fsmp-definition.yaml, the skill
 # runs:
-#   fsmp new --def .claude/skills/author-workflow/authoring-machine.yaml \
+#   fsmp new --def .claude/skills/author-fsmp-workflow/fsmp-definition.yaml \
 #     --id <project>-<slug>
-name: author-workflow
+name: author-fsmp-workflow
 description: >-
   Author an fsmp definition WITH a user: design the graph together, then drive
   the un-skippable draft → lint → dry-run → sign-off tail.
