@@ -1,16 +1,15 @@
 # fsmp — FSM Prompter
 
 `fsmp` runs prompt-driven workflows backed by extended finite state machines.
-Its primary user is an AI coding agent. The agent instantiates a pre-authored
-state machine and drives it one transition at a time; each call returns the
-current step's instruction, the transitions that are valid now, and the ones
-that are blocked and why.
 
-The point is to keep an agent on a long workflow it would otherwise drift from.
-Returning per-step instructions is not itself novel (workflow-runner MCP servers
-do that); what `fsmp` adds is a real state machine underneath — cycles, counters,
-and guards — so the workflow can express things a linear step-list can't, and so
-the *sequence* is enforced rather than merely suggested.
+The primary user is an AI coding agent. The agent instantiates a pre-authored
+state machine and drives it one transition at a time. Each call returns:
+
+* the current step's instruction
+* the transitions that are valid now
+* the transitions that are blocked and why
+
+This process helps agents follow complex workflows they might otherwise drift from.
 
 ## What it does
 
