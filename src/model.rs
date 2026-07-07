@@ -104,7 +104,14 @@ pub struct Guard {
 /// [`Guard`]'s `serde(try_from/into)` routes through it. The three `Option`s
 /// (with `skip_serializing_if`) also accept the pre-0.2.0 on-disk shape, where
 /// the two absent alternatives were serialized as explicit `null`s.
+///
+/// The `expecting` string keeps a serde shape error (e.g. a guard written as a
+/// scalar instead of a mapping) a usable author prompt — it describes the guard
+/// shape rather than leaking this private mediating type's name.
 #[derive(Serialize, Deserialize)]
+#[serde(
+    expecting = "a guard mapping with `var`, `op`, and exactly one of `value`, `param`, or `ctx`"
+)]
 struct RawGuard {
     var: String,
     op: Op,
