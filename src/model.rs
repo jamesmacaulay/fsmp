@@ -3,7 +3,8 @@
 //! A **definition** is static, human-authored, and lives in version control
 //! alongside the workflow it guards. An **instance** is a live run: a snapshot
 //! of the definition plus the current state, mutable context, and a transition
-//! log. Instances live under `~/.asm/<id>/` and are never in version control.
+//! log. Instances live under `~/.fsmp/state/<id>/` and are never in version
+//! control.
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

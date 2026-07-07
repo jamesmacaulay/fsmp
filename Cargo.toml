@@ -3,6 +3,11 @@ name = "fsmp"
 version = "0.1.0"
 edition = "2021"
 description = "FSM Prompter — a CLI that steers AI agents through workflows by re-prompting them at each transition"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/jamesmacaulay/fsmp"
+readme = "README.md"
+keywords = ["fsm", "state-machine", "workflow", "agent", "prompt"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "fsmp"

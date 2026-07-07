@@ -5,18 +5,12 @@
 //! returns prose that re-injects the current step's instruction, lists the
 //! valid moves, and names the blocked ones and why. See README for the model.
 
-mod engine;
-mod guide;
-mod lint;
-mod model;
-mod render;
-mod store;
-
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Parser, Subcommand};
+use fsmp::model::{Instance, LogEntry, Value};
+use fsmp::{guide, lint, render, store};
 use indexmap::IndexMap;
-use model::{Instance, LogEntry, Value};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -377,7 +371,7 @@ fn print_json(v: &serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::parse_kv;
-    use crate::model::Value;
+    use fsmp::model::Value;
 
     #[test]
     fn parses_and_coerces_pairs_preserving_order() {
