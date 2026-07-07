@@ -36,7 +36,8 @@ enum Cmd {
         /// Path to the definition (.yaml/.yml/.json).
         #[arg(long)]
         def: PathBuf,
-        /// Instance id (e.g. `myproj-1234`). A UUID is minted if omitted.
+        /// Instance id (e.g. `myproj-1234`): ASCII letters, digits, `-`, `_`,
+        /// `.` (no leading `.`). A UUID is minted if omitted.
         #[arg(long)]
         id: Option<String>,
         /// Override a param: `--set key=value` (repeatable).

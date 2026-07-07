@@ -418,6 +418,50 @@ fn log_records_the_full_transition_history() {
 }
 
 #[test]
+fn hostile_instance_ids_are_rejected_before_touching_disk() {
+    // An id becomes a directory name under state/ — traversal, separators,
+    // empties, and dot-prefixes must be rejected, not joined into the path.
+    let e = Env::new("hostileid");
+    let f = fixture();
+    for id in ["../pwned", "a/b", "/abs", "", ".", "..", ".hidden"] {
+        e.run(&["new", "--def", &f, "--id", id])
+            .fail()
+            .has("invalid instance id");
+    }
+    // The traversal target must not exist outside the fsmp home.
+    assert!(
+        !e.home.parent().unwrap().join("pwned").exists(),
+        "traversal id escaped FSMP_HOME"
+    );
+    // Reads are guarded by the same validation.
+    e.run(&["show", "--id", "../pwned"])
+        .fail()
+        .has("invalid instance id");
+}
+
+#[test]
+fn a_tampered_snapshot_errors_cleanly_instead_of_panicking() {
+    let e = to_awaiting_review("tampered", "2");
+    // Corrupt the on-disk snapshot: point `current` at a state that isn't in
+    // the definition.
+    let path = e.home.join("state/m/instance.json");
+    let json = std::fs::read_to_string(&path).unwrap();
+    let json = json.replace("\"current\": \"awaiting_review\"", "\"current\": \"ghost\"");
+    std::fs::write(&path, json).unwrap();
+    for args in [
+        vec!["show", "--id", "m"],
+        vec!["do", "verdict_clean", "--id", "m"],
+        vec!["log", "--id", "m"],
+    ] {
+        e.run(&args)
+            .fail()
+            .has("corrupt")
+            .has("ghost")
+            .lacks("panicked");
+    }
+}
+
+#[test]
 fn a_fresh_instance_does_not_leak_state_between_ids() {
     let e = Env::new("isolation");
     let f = fixture();

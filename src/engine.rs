@@ -59,11 +59,22 @@ impl Instance {
                 self.context.insert(set.clone(), to.clone());
             }
             Effect::Incr { incr } => {
-                let n = self.resolve(incr).and_then(|v| v.as_int()).unwrap_or(0) + 1;
+                // Saturate at the i64 bounds: a counter pinned at MAX is wrong,
+                // but a release-mode wrap to MIN would silently invert every
+                // counter gate, and a debug panic is a crash on hostile input.
+                let n = self
+                    .resolve(incr)
+                    .and_then(|v| v.as_int())
+                    .unwrap_or(0)
+                    .saturating_add(1);
                 self.context.insert(incr.clone(), Value::Int(n));
             }
             Effect::Decr { decr } => {
-                let n = self.resolve(decr).and_then(|v| v.as_int()).unwrap_or(0) - 1;
+                let n = self
+                    .resolve(decr)
+                    .and_then(|v| v.as_int())
+                    .unwrap_or(0)
+                    .saturating_sub(1);
                 self.context.insert(decr.clone(), Value::Int(n));
             }
             Effect::Cond { cond, then } => {
@@ -208,6 +219,20 @@ mod tests {
         assert_eq!(i.resolve("n"), Some(Value::Int(1)));
         i.apply_effect(&Effect::Decr { decr: "n".into() });
         assert_eq!(i.resolve("n"), Some(Value::Int(0)));
+    }
+
+    #[test]
+    fn incr_and_decr_saturate_at_the_i64_bounds() {
+        // A wrap to i64::MIN would silently invert a `count >= bar` gate; a
+        // hostile definition or --set can seed a counter at the bound.
+        let mut i = inst(
+            &[("hi", Value::Int(i64::MAX)), ("lo", Value::Int(i64::MIN))],
+            &[],
+        );
+        i.apply_effect(&Effect::Incr { incr: "hi".into() });
+        assert_eq!(i.resolve("hi"), Some(Value::Int(i64::MAX)));
+        i.apply_effect(&Effect::Decr { decr: "lo".into() });
+        assert_eq!(i.resolve("lo"), Some(Value::Int(i64::MIN)));
     }
 
     #[test]
