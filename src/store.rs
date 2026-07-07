@@ -271,4 +271,139 @@ states:
             "should name accepted extensions: {err}"
         );
     }
+
+    /// A one-state, one-transition definition whose single guard has the given
+    /// `var` and carries the given rhs key fragment (e.g. `"param: bar"` or
+    /// `"value: 1, ctx: y"`).
+    fn def_with_guard(var: &str, rhs: &str) -> String {
+        format!(
+            "\
+name: t
+initial: a
+states:
+  a:
+    transitions:
+      go: {{ to: b, guards: [ {{ var: {var}, op: eq, {rhs} }} ] }}
+  b:
+    terminal: true
+"
+        )
+    }
+
+    #[test]
+    fn guard_rejects_zero_or_multiple_rhs_at_parse_time() {
+        // More than one rhs key: previously `value` silently won; now rejected
+        // by name before the definition loads.
+        let p = temp_def(
+            "tworhs",
+            "yaml",
+            &def_with_guard("x", "value: 1, param: bar"),
+        );
+        let err = format!("{:#}", load_definition(&p).unwrap_err());
+        assert!(
+            err.contains("exactly one") && err.contains("more than one"),
+            "unexpected error: {err}"
+        );
+
+        // No rhs key at all: previously parsed and evaluated against an absent
+        // rhs; now rejected. A guard with just `var`/`op` has no rhs fragment.
+        // Use a distinctive var so the assertion pins that the message actually
+        // interpolates `r.var` — a plain `contains('x')` would be satisfied by
+        // the word "e[x]actly" in the fixed message text regardless.
+        let no_rhs = def_with_guard("zzz_distinct", "value: 1").replace(", value: 1", "");
+        let p = temp_def("norhs", "yaml", &no_rhs);
+        let err = format!("{:#}", load_definition(&p).unwrap_err());
+        assert!(
+            err.contains("exactly one") && err.contains("found none"),
+            "unexpected error: {err}"
+        );
+        // The message names the offending guard's var (backtick-wrapped), so an
+        // author can find it.
+        assert!(
+            err.contains("`zzz_distinct`"),
+            "error should name the guard var: {err}"
+        );
+    }
+
+    #[test]
+    fn guard_single_key_forms_still_load() {
+        // Each of the three valid single-key shapes parses unchanged — this is
+        // the wire-compat floor for every shipped definition.
+        for (name, rhs) in [("v", "value: 1"), ("p", "param: bar"), ("c", "ctx: other")] {
+            let p = temp_def(&format!("onerhs{name}"), "yaml", &def_with_guard("x", rhs));
+            load_definition(&p).unwrap_or_else(|e| panic!("`{rhs}` should load: {e:#}"));
+        }
+    }
+
+    #[test]
+    fn guard_serializes_to_a_single_wire_key_without_null_noise() {
+        // The enum serializes as just its own key — no `"value":null,"ctx":null`
+        // padding, which the old three-Option shape wrote into every snapshot.
+        let p = temp_def("roundtrip", "yaml", &def_with_guard("x", "param: bar"));
+        let def = load_definition(&p).unwrap();
+        let json = serde_json::to_string(&def).unwrap();
+        assert!(json.contains("\"param\":\"bar\""), "missing param: {json}");
+        assert!(
+            !json.contains("\"value\":null") && !json.contains("\"ctx\":null"),
+            "null noise in serialized guard: {json}"
+        );
+    }
+
+    #[test]
+    fn guard_shape_error_describes_the_guard_not_the_private_raw_type() {
+        // A guard written as a bare scalar instead of a mapping is a serde shape
+        // error. `RawGuard`'s `#[serde(expecting = ...)]` makes the message a
+        // usable author prompt describing the guard shape, and — crucially —
+        // never leaks the private mediating type's name.
+        let bad = "\
+name: t
+initial: a
+states:
+  a:
+    transitions:
+      go: { to: b, guards: [ notamap ] }
+  b:
+    terminal: true
+";
+        let p = temp_def("scalarguard", "yaml", bad);
+        let err = format!("{:#}", load_definition(&p).unwrap_err());
+        assert!(
+            err.contains("a guard mapping") && err.contains("`var`"),
+            "shape error should describe the guard shape: {err}"
+        );
+        assert!(
+            !err.contains("RawGuard"),
+            "shape error must not leak the private `RawGuard` name: {err}"
+        );
+    }
+
+    #[test]
+    fn old_null_bearing_instance_snapshot_still_loads() {
+        // Pre-0.2.0 snapshots serialized a guard's two absent alternatives as
+        // explicit `null`s. `RawGuard`'s optional keys accept those, so an
+        // instance.json written by an older fsmp still deserializes byte-for-byte.
+        let old = r#"{
+          "id": "legacy",
+          "definition": {
+            "name": "t",
+            "initial": "a",
+            "states": {
+              "a": { "guidance": "", "terminal": false, "transitions": {
+                "go": { "to": "b", "when": null, "blocked_reason": null,
+                        "guards": [ {"var":"x","op":"eq","value":1,"param":null,"ctx":null} ],
+                        "requires": [], "effects": [] } } },
+              "b": { "guidance": "", "terminal": true, "transitions": {} }
+            }
+          },
+          "params": {},
+          "context": {},
+          "current": "a",
+          "log": []
+        }"#;
+        let inst: crate::model::Instance =
+            serde_json::from_str(old).expect("legacy null-bearing snapshot should still load");
+        // And the guard survived with its single meaningful rhs intact.
+        let g = &inst.definition.states["a"].transitions["go"].guards[0];
+        assert_eq!(g.rhs, crate::model::Rhs::Value(crate::model::Value::Int(1)));
+    }
 }
