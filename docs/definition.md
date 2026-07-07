@@ -7,6 +7,13 @@ runtime. This document is the reference for the definition format, the patterns
 that make a definition steer well, and the anti-patterns that make it steer
 badly.
 
+When a definition backs a skill, the convention is to name the file
+`fsmp-definition.yaml` and ship it in the skill's folder beside `SKILL.md`. Like
+`SKILL.md` itself, the enclosing folder carries the specific name; the
+well-known filename is what marks a skill as fsmp-backed (and what tooling can
+glob for). The definition's own `name:` field carries its identity when the
+file is read out of context.
+
 For how an agent *drives* a machine once you've authored it, see
 `fsmp guide driving`.
 
@@ -242,7 +249,7 @@ instantiation.
 ### Pipeline with retry gates
 
 A linear pipeline whose stages can *fail and loop back* is the shape of the
-authoring machine (`.claude/skills/author-workflow/authoring-machine.yaml`):
+authoring machine (`.claude/skills/author-fsmp-workflow/fsmp-definition.yaml`):
 `drafting → linting → dry_run → user_signoff → done`, where `lint_failed`,
 `dryrun_failed`, and `changes_requested` each route back to `drafting`. Each gate
 enforces "you may not advance until this stage actually passed": you can't reach
@@ -345,7 +352,7 @@ prompt always states the current truth.
 
 ## Worked example: dev-cycle
 
-`.claude/skills/dev-cycle/machine-definition.yaml` is a complete, dogfooded
+`.claude/skills/dev-cycle/fsmp-definition.yaml` is a complete, dogfooded
 machine. Reading it top to bottom, here is where each pattern lives:
 
 - **params vs. context.** `bar`, `round_ceiling`, and `capstone` are `params`
@@ -384,4 +391,4 @@ machine. Reading it top to bottom, here is where each pattern lives:
   guidance and no transitions.
 
 For the authoring machine as a second worked example of the pipeline-with-retry
-shape, see `.claude/skills/author-workflow/authoring-machine.yaml`.
+shape, see `.claude/skills/author-fsmp-workflow/fsmp-definition.yaml`.

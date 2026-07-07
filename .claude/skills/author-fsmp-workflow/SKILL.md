@@ -1,5 +1,5 @@
 ---
-name: author-workflow
+name: author-fsmp-workflow
 description: Use when you and a user need to AUTHOR a new fsmp definition (a state-machine workflow) — not drive an existing one. You interview the user about the workflow's steps and the omission failure-modes worth guarding, design a state graph together, then drive the un-skippable draft → lint → dry-run → sign-off pipeline enforced by the `fsmp` machine shipped beside this skill.
 argument-hint: "[what the workflow should do]"
 ---
@@ -18,7 +18,7 @@ Two halves, and keeping them separate is the point:
   shape. No tool enforces this part — it's judgment, and this skill carries that
   judgment.
 - **The un-skippable tail is enforced by `fsmp`.** Once the graph is signed off,
-  you drive `authoring-machine.yaml` (beside this skill): draft → lint → dry-run →
+  you drive `fsmp-definition.yaml` (beside this skill): draft → lint → dry-run →
   user sign-off → done, with every quality gate able to loop you back to drafting
   but never forward past a failure. You don't sequence that tail from memory; the
   machine does.
@@ -85,13 +85,19 @@ transitions, and for each guard/counter the omission it defends. Changing the
 shape after the prose is written is expensive; that's why the machine's first gate
 is this sign-off.
 
+**6. Agree on the destination path.** If the definition backs a skill, the
+convention is `.claude/skills/<skill-name>/fsmp-definition.yaml`, beside its
+`SKILL.md` — the folder carries the specific name, the well-known filename marks
+the skill as fsmp-backed. Otherwise, put it anywhere in version control beside
+what it guards. This becomes `def_path` in Phase B.
+
 ## Phase B — drive the authoring machine
 
 Once the user has signed off on the graph, create the machine and let it sequence
 the rest:
 
 ```
-fsmp new --def .claude/skills/author-workflow/authoring-machine.yaml \
+fsmp new --def .claude/skills/author-fsmp-workflow/fsmp-definition.yaml \
   --id <project>-<slug>
 ```
 

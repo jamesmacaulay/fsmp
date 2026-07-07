@@ -56,9 +56,9 @@ it — it makes the correct path the available one.
 | `src/main.rs` | clap CLI: `new` / `show` / `do` / `log` / `lint` / `guide` (+ global `--json`). |
 | `src/guide.rs` | `fsmp guide [topic]`: topic→text map over the `include_str!`'d `docs/`. |
 | `docs/definition.md`, `docs/driving.md` | Single-source reference docs, compiled into the binary by `src/guide.rs`. `definition.md` = the format + patterns/anti-patterns; `driving.md` = the driving primer. |
-| `.claude/skills/dev-cycle/machine-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. |
+| `.claude/skills/dev-cycle/fsmp-definition.yaml` | The reference workflow definition (implement-and-review). Canonical; the integration tests run against it. `fsmp-definition.yaml` is the standard filename for any skill's machine — the folder names the skill, the filename marks it fsmp-backed. |
 | `.claude/skills/dev-cycle/SKILL.md` | This repo's own dev-cycle skill (dogfooded); delegates process sequencing to `fsmp` and keeps content/judgment in prose. |
-| `.claude/skills/author-workflow/` | The authoring skill + `authoring-machine.yaml` (a pipeline-with-retry-gates exemplar). Helps an agent + user AUTHOR a definition; also lint/dry-run-tested. |
+| `.claude/skills/author-fsmp-workflow/` | The authoring skill + `fsmp-definition.yaml` (a pipeline-with-retry-gates exemplar). Helps an agent + user AUTHOR a definition; also lint/dry-run-tested. |
 | `tests/` | Integration tests that run the built binary against the example definitions (`dev_cycle.rs`, `authoring.rs`, `lint.rs`, `guide.rs`). |
 
 ## Model
@@ -108,16 +108,16 @@ the rejection is itself a prompt.
   tests in `tests/` run the real binary via `CARGO_BIN_EXE_fsmp` with a temp
   `FSMP_HOME`, so they never touch a real `~/.fsmp`).
 - Run: `cargo run -- <args>`, e.g.
-  `cargo run -- new --def .claude/skills/dev-cycle/machine-definition.yaml --id demo --set bar=2`
+  `cargo run -- new --def .claude/skills/dev-cycle/fsmp-definition.yaml --id demo --set bar=2`
 - Lint: `cargo clippy`; format: `cargo fmt`.
 
 When you change the engine or a shipped definition
-(`.claude/skills/dev-cycle/machine-definition.yaml`,
-`.claude/skills/author-workflow/authoring-machine.yaml`), **add/adjust an
+(`.claude/skills/dev-cycle/fsmp-definition.yaml`,
+`.claude/skills/author-fsmp-workflow/fsmp-definition.yaml`), **add/adjust an
 integration test that drives it** — the behaviors these machines exist to
 guarantee must stay covered: for dev-cycle, can't skip the
 reviewer-response/re-assessment steps and can't `converge` before the counter bar
-is met (`tests/dev_cycle.rs`); for author-workflow, can't skip the
+is met (`tests/dev_cycle.rs`); for author-fsmp-workflow, can't skip the
 lint/dry-run/sign-off gates and can't reach `done` without `accepted`
 (`tests/authoring.rs`).
 
@@ -130,7 +130,7 @@ citations of `fsmp guide definition` accurate rather than restating the grammar.
 
 v1 skeleton. `fsmp lint` (definition linter: unreachable / dead-end states, plus
 the structural checks) is done, as is `fsmp guide` (embedded authoring/driving
-docs) with the author-workflow skill + machine for authoring definitions with a
+docs) with the author-fsmp-workflow skill + machine for authoring definitions with a
 user. Candidates: real man pages (`fsmp guide` is prose-to-stdout because fsmp
 installs to a non-standard `~/.fsmp/bin` prefix — man generation/install is a
 separate follow-up, issue #9), unit-test coverage growth, `fsmp ls`/`defs`
