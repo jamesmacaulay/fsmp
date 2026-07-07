@@ -1,7 +1,7 @@
 //! `fsmp` — FSM Prompter.
 //!
 //! A CLI whose primary user is an AI coding agent. The agent instantiates a
-//! human-authored state machine and drives one transition at a time; every call
+//! pre-authored state machine and drives one transition at a time; every call
 //! returns prose that re-injects the current step's instruction, lists the
 //! valid moves, and names the blocked ones and why. See README for the model.
 

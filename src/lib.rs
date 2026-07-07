@@ -1,9 +1,11 @@
 //! `fsmp` — FSM Prompter: prompt-driven workflows backed by extended finite
 //! state machines.
 //!
-//! A **definition** ([`model::Definition`]) is a static, human-authored
-//! workflow: states carrying prose guidance, guarded transitions with effects,
-//! read-only params, and mutable context. An **instance**
+//! A **definition** ([`model::Definition`]) is a static workflow, authored
+//! ahead of the run — by a person, or by an agent working with one — and kept
+//! in version control: states carrying prose guidance, guarded transitions
+//! with effects, read-only params, and mutable context. The agent driving a
+//! machine never authors or mutates its own definition. An **instance**
 //! ([`model::Instance`]) is one live run — a snapshot of the definition taken
 //! at creation, plus the current state, the context, and a transition log.
 //!

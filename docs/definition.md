@@ -1,8 +1,10 @@
 # Authoring fsmp definitions
 
-A **definition** is a static, human-authored workflow, kept in version control
-beside the code or skill it guards. It is a rigid guardrail: the agent *drives* a
-machine instantiated from it, but never authors or mutates the definition at
+A **definition** is a static workflow, authored ahead of the run — by a person,
+or (as with the definitions shipped in this repo) by an agent working with one —
+and kept in version control beside the code or skill it guards. It is a rigid
+guardrail: authoring is a separate, signed-off act, and the agent *driving* a
+machine instantiated from it never authors or mutates the definition at
 runtime. This document is the reference for the definition format, the patterns
 that make a definition steer well, and the anti-patterns that make it steer
 badly.

@@ -6,7 +6,7 @@ Guidance for AI agents working in this repository.
 
 `fsmp` (FSM Prompter) is a Rust CLI that runs prompt-driven workflows backed by
 extended finite state machines. Its **primary user is an AI coding agent**: the
-agent instantiates a human-authored state machine and drives one transition at a
+agent instantiates a pre-authored state machine and drives one transition at a
 time; each call returns the current step's instruction, the transitions valid
 now, and the ones blocked and why.
 
@@ -29,10 +29,11 @@ it — it makes the correct path the available one.
   produces it. When changing behavior, ask first "what does the agent now read,
   and does it steer correctly?" Guidance strings are authored in the definition's
   YAML block scalars — keep them concrete (interpolate `{vars}`) and imperative.
-- **Definitions are rigid guardrails.** They are static, human-authored, and in
-  version control. The agent drives a machine; it does **not** author or mutate
-  the definition. Don't add features that let a running agent rewrite its own
-  rails.
+- **Definitions are rigid guardrails.** They are static and in version control,
+  authored ahead of the run — often by an agent working with a human (the
+  author-fsmp-workflow skill), but always as a separate, signed-off act. The
+  agent DRIVING a machine does **not** author or mutate its definition. Don't
+  add features that let a running agent rewrite its own rails.
 - **Snapshot at `new`.** The definition is copied into the instance so editing
   the source file (or switching branches) can't mutate a running machine.
   Preserve this.
