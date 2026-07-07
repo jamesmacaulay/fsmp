@@ -1,7 +1,7 @@
 # fsmp — FSM Prompter
 
 `fsmp` runs prompt-driven workflows backed by extended finite state machines.
-Its primary user is an AI coding agent. The agent instantiates a human-authored
+Its primary user is an AI coding agent. The agent instantiates a pre-authored
 state machine and drives it one transition at a time; each call returns the
 current step's instruction, the transitions that are valid now, and the ones
 that are blocked and why.
@@ -41,7 +41,9 @@ the *sequence* is enforced rather than merely suggested.
 
 ## Model
 
-- **Definition** — static, human-authored, kept in version control. The file
+- **Definition** — static, authored ahead of the run (by a person, or by an
+  agent working with one — see "Authoring your own workflows"), kept in
+  version control. The file
   extension selects the parser (case-insensitively): `.yaml`/`.yml` for YAML,
   `.json` for JSON; any other extension (or none) is rejected. States +
   `params` (set once at `new`, read-only) + `context` (mutable) + transitions

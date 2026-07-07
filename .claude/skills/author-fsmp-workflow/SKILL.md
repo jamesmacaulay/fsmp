@@ -6,10 +6,10 @@ argument-hint: "[what the workflow should do]"
 
 # Author Workflow
 
-Author a new **fsmp definition** — a human-authored state machine that later
+Author a new **fsmp definition** — a version-controlled state machine that later
 steers an agent through some workflow — *with* a user. This is the design-time
 counterpart to dev-cycle: dev-cycle *drives* a machine; this skill helps you
-*build* one.
+*build* one, with the user signing off on the shape.
 
 Two halves, and keeping them separate is the point:
 

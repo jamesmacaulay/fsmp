@@ -1,7 +1,9 @@
 //! Data model for machine definitions and running instances.
 //!
-//! A **definition** is static, human-authored, and lives in version control
-//! alongside the workflow it guards. An **instance** is a live run: a snapshot
+//! A **definition** is static — authored ahead of the run (by a person, or by
+//! an agent working with one) and kept in version control alongside the
+//! workflow it guards. The agent driving a machine never authors or mutates
+//! its own definition. An **instance** is a live run: a snapshot
 //! of the definition plus the current state, mutable context, and a transition
 //! log. Instances live under `~/.fsmp/state/<id>/` and are never in version
 //! control.
@@ -141,7 +143,7 @@ pub struct State {
     pub transitions: IndexMap<String, Transition>,
 }
 
-/// A static, human-authored workflow.
+/// A static workflow, authored ahead of the run and fixed thereafter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Definition {
     pub name: String,
