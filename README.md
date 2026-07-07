@@ -124,7 +124,27 @@ that exposes the same engine over MCP, where PreToolUse hooks could turn the
 voluntary sequencing into hard gating. (`fsmp lint`, a definition linter for
 unreachable / dead-end states, has since landed.)
 
-## Build & install
+## Install
+
+With a Rust toolchain (`rustup.rs`):
+
+```
+cargo install fsmp
+```
+
+or straight from this repository:
+
+```
+cargo install --git https://github.com/jamesmacaulay/fsmp
+```
+
+Either installs the `fsmp` binary into `~/.cargo/bin` (on your PATH if cargo
+is set up normally).
+
+fsmp is also a library — the same engine the CLI drives (`cargo add fsmp`);
+API docs at [docs.rs/fsmp](https://docs.rs/fsmp).
+
+## Build & install from source
 
 ```
 make build       # debug build (target/debug/fsmp)
@@ -143,3 +163,16 @@ export PATH="$HOME/.fsmp/bin:$PATH"
 `FSMP_HOME` relocates both the binary and state (`make install FSMP_HOME=...`).
 Run `make help` for the full target list; plain `cargo build` / `cargo test` also
 work.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
