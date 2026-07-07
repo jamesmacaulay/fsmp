@@ -49,7 +49,7 @@ it — it makes the correct path the available one.
 
 | Path | Role |
 |---|---|
-| `src/model.rs` | Types: `Definition`, `Instance`, `State`, `Transition`, `Guard`, `Effect`, `Value`. |
+| `src/model.rs` | Types: `Definition`, `Instance`, `State`, `Transition`, `Guard` (rhs is the `Rhs` enum — exactly one of value/param/ctx, enforced at parse via a private `RawGuard`), `Effect`, `Value`. |
 | `src/engine.rs` | Guard evaluation, effect application, `{var}` interpolation (impls on `Instance`). |
 | `src/render.rs` | Renders the step text the agent reads (`render`, `render_json`). |
 | `src/lint.rs` | Definition linter: pure `lint(&Definition) -> Vec<Finding>` plus prose/JSON rendering. |
