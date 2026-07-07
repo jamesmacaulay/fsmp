@@ -146,6 +146,11 @@ is set up normally).
 fsmp is also a library — the same engine the CLI drives (`cargo add fsmp`);
 API docs at [docs.rs/fsmp](https://docs.rs/fsmp).
 
+The example skills (dev-cycle, author-fsmp-workflow) can be installed into a
+project with the [skills CLI](https://github.com/vercel-labs/skills) —
+`npx skills add jamesmacaulay/fsmp` — or copied from this repo directly (see
+`.claude/skills/dev-cycle/README.md`).
+
 ## Build & install from source
 
 ```
