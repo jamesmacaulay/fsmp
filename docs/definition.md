@@ -119,6 +119,10 @@ guards:
   - `param:` — the name of a read-only param.
   - `ctx:` — the name of another context variable (resolved context-then-param).
 
+  "Exactly one" is enforced at parse time: a guard with none of the three, or
+  more than one, is rejected before the definition loads (`new` and `lint`
+  both report it).
+
 Operator semantics, exactly as the engine evaluates them:
 
 - `eq` / `ne` compare values **by exact type and content**. `Int(3)` does not

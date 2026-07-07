@@ -68,19 +68,88 @@ pub enum Op {
     Gte,
 }
 
+/// The right-hand side of a guard comparison — exactly one of a literal
+/// `value`, the name of a read-only `param`, or the name of another context
+/// variable `ctx`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Rhs {
+    Value(Value),
+    Param(String),
+    Ctx(String),
+}
+
 /// A single structured comparison. No expression language — just
-/// `<var> <op> <rhs>`, where the right-hand side is a literal `value`, a
-/// read-only `param`, or another context variable `ctx`.
+/// `<var> <op> <rhs>`.
+///
+/// In a definition this is written with exactly one of the keys `value`,
+/// `param`, or `ctx` (e.g. `{ var: count, op: gte, param: bar }`); supplying
+/// none or more than one is rejected at parse time.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(try_from = "RawGuard", into = "RawGuard")]
 pub struct Guard {
     pub var: String,
     pub op: Op,
-    #[serde(default)]
-    pub value: Option<Value>,
-    #[serde(default)]
-    pub param: Option<String>,
-    #[serde(default)]
-    pub ctx: Option<String>,
+    pub rhs: Rhs,
+}
+
+/// The wire shape of a guard: three optional keys, of which exactly one must
+/// be present. Kept private so the public [`Guard`] stays correct by
+/// construction.
+#[derive(Serialize, Deserialize)]
+struct RawGuard {
+    var: String,
+    op: Op,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    value: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    param: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ctx: Option<String>,
+}
+
+impl TryFrom<RawGuard> for Guard {
+    type Error = String;
+    fn try_from(r: RawGuard) -> Result<Self, Self::Error> {
+        let rhs = match (r.value, r.param, r.ctx) {
+            (Some(v), None, None) => Rhs::Value(v),
+            (None, Some(p), None) => Rhs::Param(p),
+            (None, None, Some(c)) => Rhs::Ctx(c),
+            (None, None, None) => {
+                return Err(format!(
+                    "guard on `{}` needs exactly one of `value`, `param`, or `ctx` (found none)",
+                    r.var
+                ))
+            }
+            _ => {
+                return Err(format!(
+                    "guard on `{}` needs exactly one of `value`, `param`, or `ctx` (found more than one)",
+                    r.var
+                ))
+            }
+        };
+        Ok(Guard {
+            var: r.var,
+            op: r.op,
+            rhs,
+        })
+    }
+}
+
+impl From<Guard> for RawGuard {
+    fn from(g: Guard) -> RawGuard {
+        let (value, param, ctx) = match g.rhs {
+            Rhs::Value(v) => (Some(v), None, None),
+            Rhs::Param(p) => (None, Some(p), None),
+            Rhs::Ctx(c) => (None, None, Some(c)),
+        };
+        RawGuard {
+            var: g.var,
+            op: g.op,
+            value,
+            param,
+            ctx,
+        }
+    }
 }
 
 /// A mutation applied to context when a transition fires. `untagged`, so the

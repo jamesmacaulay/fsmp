@@ -1,7 +1,7 @@
 //! Transition evaluation: guard checks, effect application, and value
 //! resolution/interpolation against an instance's params + context.
 
-use crate::model::{Effect, Guard, Instance, Op, Transition, Value};
+use crate::model::{Effect, Guard, Instance, Op, Rhs, Transition, Value};
 
 impl Instance {
     /// Look up a name in context first, then params. Context shadows params
@@ -13,15 +13,13 @@ impl Instance {
             .cloned()
     }
 
+    /// Resolve the comparison's right-hand side. `None` only when a named
+    /// param/ctx variable is unset — a literal always resolves.
     fn rhs(&self, g: &Guard) -> Option<Value> {
-        if let Some(v) = &g.value {
-            Some(v.clone())
-        } else if let Some(p) = &g.param {
-            self.params.get(p).cloned()
-        } else if let Some(c) = &g.ctx {
-            self.resolve(c)
-        } else {
-            None
+        match &g.rhs {
+            Rhs::Value(v) => Some(v.clone()),
+            Rhs::Param(p) => self.params.get(p).cloned(),
+            Rhs::Ctx(c) => self.resolve(c),
         }
     }
 
@@ -152,47 +150,39 @@ mod tests {
         }
     }
 
-    fn guard(
-        var: &str,
-        op: Op,
-        value: Option<Value>,
-        param: Option<&str>,
-        ctx: Option<&str>,
-    ) -> Guard {
+    fn guard(var: &str, op: Op, rhs: Rhs) -> Guard {
         Guard {
             var: var.into(),
             op,
-            value,
-            param: param.map(str::to_string),
-            ctx: ctx.map(str::to_string),
+            rhs,
         }
     }
 
     #[test]
     fn eq_and_ne_against_literal() {
         let i = inst(&[("x", Value::Int(3))], &[]);
-        assert!(i.eval_guard(&guard("x", Op::Eq, Some(Value::Int(3)), None, None)));
-        assert!(!i.eval_guard(&guard("x", Op::Eq, Some(Value::Int(4)), None, None)));
-        assert!(i.eval_guard(&guard("x", Op::Ne, Some(Value::Int(4)), None, None)));
+        assert!(i.eval_guard(&guard("x", Op::Eq, Rhs::Value(Value::Int(3)))));
+        assert!(!i.eval_guard(&guard("x", Op::Eq, Rhs::Value(Value::Int(4)))));
+        assert!(i.eval_guard(&guard("x", Op::Ne, Rhs::Value(Value::Int(4)))));
     }
 
     #[test]
     fn ordered_compare_against_param() {
         let i = inst(&[("count", Value::Int(1))], &[("bar", Value::Int(2))]);
-        assert!(i.eval_guard(&guard("count", Op::Lt, None, Some("bar"), None)));
-        assert!(!i.eval_guard(&guard("count", Op::Gte, None, Some("bar"), None)));
+        assert!(i.eval_guard(&guard("count", Op::Lt, Rhs::Param("bar".into()))));
+        assert!(!i.eval_guard(&guard("count", Op::Gte, Rhs::Param("bar".into()))));
     }
 
     #[test]
     fn ordered_compare_against_nonnumeric_is_false() {
         let i = inst(&[("x", Value::Str("hi".into()))], &[]);
-        assert!(!i.eval_guard(&guard("x", Op::Gt, Some(Value::Int(0)), None, None)));
+        assert!(!i.eval_guard(&guard("x", Op::Gt, Rhs::Value(Value::Int(0)))));
     }
 
     #[test]
     fn compare_against_other_context_var() {
         let i = inst(&[("a", Value::Bool(true)), ("b", Value::Bool(true))], &[]);
-        assert!(i.eval_guard(&guard("a", Op::Eq, None, None, Some("b"))));
+        assert!(i.eval_guard(&guard("a", Op::Eq, Rhs::Ctx("b".into()))));
     }
 
     #[test]
@@ -205,8 +195,8 @@ mod tests {
             requires: vec![],
             effects: vec![],
             guards: vec![
-                guard("x", Op::Gt, Some(Value::Int(0)), None, None),
-                guard("x", Op::Lt, Some(Value::Int(3)), None, None), // fails
+                guard("x", Op::Gt, Rhs::Value(Value::Int(0))),
+                guard("x", Op::Lt, Rhs::Value(Value::Int(3))), // fails
             ],
         };
         assert!(!i.guards_pass(&t));
@@ -253,13 +243,7 @@ mod tests {
             &[],
         );
         let eff = Effect::Cond {
-            cond: guard(
-                "initial_was_clean",
-                Op::Eq,
-                Some(Value::Bool(true)),
-                None,
-                None,
-            ),
+            cond: guard("initial_was_clean", Op::Eq, Rhs::Value(Value::Bool(true))),
             then: Box::new(Effect::Incr { incr: "c".into() }),
         };
         clean.apply_effect(&eff);

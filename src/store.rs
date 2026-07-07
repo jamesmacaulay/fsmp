@@ -271,4 +271,71 @@ states:
             "should name accepted extensions: {err}"
         );
     }
+
+    /// A definition whose single guard carries the given rhs key(s).
+    fn def_with_guard_rhs(rhs: &str) -> String {
+        format!(
+            "\
+name: t
+initial: a
+states:
+  a:
+    transitions:
+      go: {{ to: b, guards: [ {{ var: x, op: eq, {rhs} }} ] }}
+  b:
+    terminal: true
+"
+        )
+    }
+
+    #[test]
+    fn guard_requires_exactly_one_rhs_at_parse_time() {
+        // More than one rhs key: previously value silently won; now rejected.
+        let p = temp_def(
+            "tworhs",
+            "yaml",
+            &def_with_guard_rhs("value: 1, param: bar"),
+        );
+        let err = format!("{:#}", load_definition(&p).unwrap_err());
+        assert!(
+            err.contains("exactly one") && err.contains("more than one"),
+            "unexpected error: {err}"
+        );
+
+        // No rhs key at all: previously evaluated against an absent rhs.
+        let p = temp_def(
+            "norhs",
+            "yaml",
+            &def_with_guard_rhs("value: 1").replace(", value: 1", ""),
+        );
+        let err = format!("{:#}", load_definition(&p).unwrap_err());
+        assert!(
+            err.contains("exactly one") && err.contains("found none"),
+            "unexpected error: {err}"
+        );
+
+        // Each single-key form still parses.
+        for (name, rhs) in [("v", "value: 1"), ("p", "param: bar"), ("c", "ctx: other")] {
+            let p = temp_def(&format!("onerhs{name}"), "yaml", &def_with_guard_rhs(rhs));
+            load_definition(&p).unwrap_or_else(|e| panic!("`{rhs}` should load: {e:#}"));
+        }
+    }
+
+    #[test]
+    fn guard_serializes_back_to_its_single_wire_key() {
+        // Round-trip: the enum serializes as just its own key — no null noise
+        // for the two absent alternatives (as the old triple-Option shape did).
+        let p = temp_def("roundtrip", "yaml", &def_with_guard_rhs("param: bar"));
+        let def = load_definition(&p).unwrap();
+        let json = serde_json::to_string(&def).unwrap();
+        assert!(json.contains("\"param\":\"bar\""), "missing param: {json}");
+        assert!(
+            !json.contains("\"value\":null") && !json.contains("\"ctx\":null"),
+            "null noise in serialized guard: {json}"
+        );
+        // And the old on-disk shape (explicit nulls) still deserializes.
+        let old = r#"{"var":"x","op":"eq","value":1,"param":null,"ctx":null}"#;
+        let g: crate::model::Guard = serde_json::from_str(old).unwrap();
+        assert_eq!(g.rhs, crate::model::Rhs::Value(crate::model::Value::Int(1)));
+    }
 }
