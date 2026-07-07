@@ -21,7 +21,25 @@ pub fn state_dir() -> Result<PathBuf> {
     Ok(home_dir()?.join("state"))
 }
 
+/// An instance id becomes a single directory name under `state/`, so it must
+/// not be able to name anything else: no separators (`../../x` or an absolute
+/// path would escape the fsmp home entirely), non-empty (`""` would collide
+/// with `state/` itself), and no leading `.` (covers `.`/`..` and hidden dirs).
+fn validate_id(id: &str) -> Result<()> {
+    let ok = !id.is_empty()
+        && !id.starts_with('.')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    anyhow::ensure!(
+        ok,
+        "invalid instance id `{id}`: use ASCII letters, digits, `-`, `_`, or `.` (no leading `.`)"
+    );
+    Ok(())
+}
+
 pub fn instance_dir(id: &str) -> Result<PathBuf> {
+    validate_id(id)?;
     Ok(state_dir()?.join(id))
 }
 
@@ -104,7 +122,11 @@ pub fn save_instance(inst: &Instance) -> Result<()> {
     let dir = instance_dir(&inst.id)?;
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {dir:?}"))?;
     let json = serde_json::to_string_pretty(inst)?;
-    std::fs::write(instance_path(&inst.id)?, json).context("writing instance.json")?;
+    // Write-then-rename so a crash mid-write can't leave a truncated
+    // instance.json behind (rename is atomic on the same filesystem).
+    let tmp = dir.join("instance.json.tmp");
+    std::fs::write(&tmp, json).with_context(|| format!("writing {tmp:?}"))?;
+    std::fs::rename(&tmp, instance_path(&inst.id)?).context("committing instance.json")?;
     Ok(())
 }
 
@@ -113,6 +135,13 @@ pub fn load_instance(id: &str) -> Result<Instance> {
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("no instance `{id}` at {path:?} (did you run `fsmp new`?)"))?;
     let inst: Instance = serde_json::from_str(&text).context("parsing instance.json")?;
+    // A hand-edited/corrupt snapshot must fail here with a clear error, not
+    // panic later in rendering, which assumes this invariant.
+    anyhow::ensure!(
+        inst.definition.states.contains_key(&inst.current),
+        "instance `{id}` is corrupt: current state `{}` is not in its definition snapshot",
+        inst.current
+    );
     Ok(inst)
 }
 
