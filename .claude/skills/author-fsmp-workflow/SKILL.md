@@ -86,10 +86,11 @@ shape after the prose is written is expensive; that's why the machine's first ga
 is this sign-off.
 
 **6. Agree on the destination path.** If the definition backs a skill, the
-convention is `.claude/skills/<skill-name>/fsmp-definition.yaml`, beside its
-`SKILL.md` — the folder carries the specific name, the well-known filename marks
-the skill as fsmp-backed. Otherwise, put it anywhere in version control beside
-what it guards. This becomes `def_path` in Phase B.
+convention is `fsmp-definition.yaml` inside the skill's folder, beside its
+`SKILL.md` (e.g. `.claude/skills/<skill-name>/` in this repo's layout — use
+your harness's skills directory) — the folder carries the specific name, the
+well-known filename marks the skill as fsmp-backed. Otherwise, put it anywhere
+in version control beside what it guards. This becomes `def_path` in Phase B.
 
 ## Phase B — drive the authoring machine
 

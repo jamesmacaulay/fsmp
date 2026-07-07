@@ -105,7 +105,7 @@ states:
 
   awaiting_impl_response:
     guidance: |
-      The reviewer's notes are NOT optional. SendMessage the implementer to
+      The reviewer's notes are NOT optional. Message the implementer to
       respond to EVERY note — blocking AND non-blocking — at {pr_url}: address
       each with code + a PR reply (or a justified deferral), push, return DONE.
 
@@ -223,7 +223,7 @@ states:
 
   fixing:
     guidance: |
-      SendMessage the PERSISTENT implementer (never a fresh spawn) to address
+      Message the PERSISTENT implementer (never a fresh spawn) to address
       the verification findings at {findings_url}: fix each defect with code
       plus a regression test where one is possible, state WHY the existing
       suite missed it, reply on the PR, push, and return DONE.

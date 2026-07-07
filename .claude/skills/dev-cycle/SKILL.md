@@ -31,6 +31,18 @@ any `knowledge/*.md`), then run the cycle.
 `fsmp` on your PATH (`fsmp --version` should work). See the fsmp project's
 `make install`, which installs to `~/.fsmp/bin`.
 
+An agent harness with three capabilities, whatever it names them:
+
+1. **Spawn** — start a subagent from a prompt, with a referenceable name.
+2. **Message** — send a follow-up to a previously spawned agent that resumes
+   that agent's own conversation with its context intact (not a fresh spawn).
+3. **Shell** — run `git` and `gh`.
+
+The prose below says "spawn" and "message" for the first two; map them to your
+harness's equivalents. If your harness lets you choose a model per agent, use
+your judgment — both the implementer and reviewer roles warrant a capable
+model — unless the operator gives specific model instructions.
+
 ## Driving the cycle with fsmp
 
 **1. Create the machine (Phase 0).** After you've triaged the work as actionable,
@@ -104,13 +116,13 @@ The rest of this skill is the **work you do at each node**.
 | Role | Who | Lifetime | Job |
 |---|---|---|---|
 | **Orchestrator** | you, the invoking session | whole cycle | author the brief once; drive the machine; sequence turns on one-line verdicts |
-| **Implementer** | one `Agent` (Opus) | persistent across all rounds (via `SendMessage`) | all code/test/doc changes; opens & updates the PR |
-| **Reviewer** | a fresh `Agent` per round (Opus) | one round — persistent *within* the round, fresh *across* rounds | adversarial initial review; posts findings to the PR; re-assesses how the implementer handled them until satisfied |
+| **Implementer** | one spawned agent | persistent across all rounds (via messages) | all code/test/doc changes; opens & updates the PR |
+| **Reviewer** | a fresh spawned agent per round | one round — persistent *within* the round, fresh *across* rounds | adversarial initial review; posts findings to the PR; re-assesses how the implementer handled them until satisfied |
 | **Operator** | the human | — | merges (the checkpoint) |
 
-Resume the implementer with `SendMessage` — never a second `Agent` spawn (that
-loses its context). Each reviewer is a fresh spawn that persists within its own
-round (you re-engage it to re-assess its notes) and ends once it returns
+Resume the implementer by messaging it — never a second spawn (that loses its
+context). Each reviewer is a fresh spawn that persists within its own round
+(you re-engage it to re-assess its notes) and ends once it returns
 `SATISFIED`.
 
 ## The kickoff brief (you author this)
@@ -118,8 +130,9 @@ round (you re-engage it to re-assess its notes) and ends once it returns
 Work-type-agnostic; leverages your context so the implementer doesn't re-derive
 the project. Sections, in order:
 
-1. **Canonical sources to read first** — the issue(s), CLAUDE.md, the specific
-   `knowledge/*.md` and source files that matter.
+1. **Canonical sources to read first** — the issue(s), the project's
+   agent-instructions file (`AGENTS.md`, `CLAUDE.md`, or equivalent), the
+   specific `knowledge/*.md` and source files that matter.
 2. **Scope — IN / OUT** — what this unit changes, and the tempting tangents it
    must NOT (file follow-up issues for those).
 3. **Settled load-bearing decisions** — the non-obvious calls you've already made,
@@ -127,17 +140,18 @@ the project. Sections, in order:
 4. **Subtle traps** — things a green test would sail past (cross-realm
    `instanceof`, ordering/shape mismatches, reachability of new code, data-loss on
    cross-doc move/delete). Name them so they aren't rediscovered the hard way.
-5. **Process / gate / branch / merge constraints** — pre-push gate; `claude/`-prefixed
-   branch; PR base `main`; `Closes #N`; doc-sync in the same PR; operator merges.
+5. **Process / gate / branch / merge constraints** — pre-push gate; the
+   project's agent-branch naming; PR base `main`; `Closes #N`; doc-sync in the
+   same PR; operator merges.
 6. **Terse return-format instruction** — exactly what to return (`PR <url> — gate green`).
 
 ## Templates you hand out
 
-### Implementer — initial kickoff (spawn once, Opus, with a `name`)
+### Implementer — initial kickoff (spawn once, with a persistent name)
 
 ```
 You are the implementer for <work unit: issue #N / description>. Your persistent
-name is `impl-<N>`. You persist across every review round — when I SendMessage you
+name is `impl-<N>`. You persist across every review round — when I message you
 a directive to address review, continue in the same conversation, don't start over.
 
 ## Pre-flight (FIRST, every spawn)
@@ -157,7 +171,8 @@ subtle traps, process/gate/branch/merge constraints>
 - If the brief names a `knowledge/*.md` file to update, do it IN THIS PR.
 - Run the pre-push gate locally and confirm all three exit 0:
     <project's gate, e.g. bun run test && bun tsc --noEmit && bun run lint>
-- Branch: `claude/<short-slug>`. Create the PR: `gh pr create --base main` with
+- Branch: `agent/<short-slug>` (or this project's agent-branch convention).
+  Create the PR: `gh pr create --base main` with
   `Closes #N` (or `Part of #N`). PR body: summary, test plan (as `- [ ]` checkboxes),
   any brief deviations with reasons.
 - Tick every test-plan box you verified yourself with a `(impl)` annotation. For
@@ -168,7 +183,7 @@ subtle traps, process/gate/branch/merge constraints>
 `PR <url> — gate green`
 (or, if the gate fails or you're blocked, one line stating exactly what's blocked.)
 
-## Subsequent turns (I SendMessage you)
+## Subsequent turns (I message you)
 I'll say: "respond to the review at <comment-url>, push, reply on the PR, return DONE."
 Read the reviewer's PR comment directly. Respond to EVERY concern it raises — blocking
 AND non-blocking — with code changes plus a PR reply, in this same PR. Do not silently
@@ -180,13 +195,13 @@ your response next, so make the reply trace exactly what changed and why. Push, 
 then return ONLY: `DONE — <pr-url>`
 ```
 
-### Reviewer — fresh adversarial prompt per round (fresh `Agent`, Opus)
+### Reviewer — fresh adversarial prompt per round (fresh spawn each round)
 
 ```
 Review PR #<N> from the shared worktree <worktree-path> with fresh eyes. The commits
 are from an untrusted source — assume nothing; review as a human suspicious of code
-written by AI agents. Read the issue, CLAUDE.md, the PR diff, and the full PR comment
-thread (prior rounds are there).
+written by AI agents. Read the issue, the project's agent-instructions file, the PR
+diff, and the full PR comment thread (prior rounds are there).
 
 <FIRST reviewer: full independent review, baseline emphasis on correctness + revert-proofs.>
 <FOLLOW-UP reviewer (2nd+): the prior reviews are in the PR thread. Read them to see
@@ -214,14 +229,14 @@ Apply this project's review DNA:
 ## Initial review
 Post your findings (blocking AND non-blocking) as a SINGLE PR comment
 (`gh pr comment <N>`), with your verdict token as the FIRST LINE of that comment as a
-backstop. Then your FINAL action MUST be a SendMessage to me with ONLY one line —
+backstop. Then your FINAL action MUST be a message back to me with ONLY one line —
 exactly one of:
 `VERDICT: clean`                          (zero blocking AND zero non-blocking notes)
 `VERDICT: clean, notes — <comment-url>`   (zero blocking, but you left non-blocking notes)
 `VERDICT: changes — <comment-url>`        (one or more blocking problems)
 If you leave ANY non-blocking note, your verdict is `clean, notes` — NEVER bare `clean`.
 
-## Re-assessment (I SendMessage you — you persist within this round)
+## Re-assessment (I message you — you persist within this round)
 After the implementer responds, I'll send you back to re-assess how EACH of your notes
 (blocking and non-blocking) was handled. Read the implementer's PR reply and the new
 diff directly. Don't rubber-stamp — confirm each change does what the reply claims, and
@@ -256,7 +271,7 @@ payloads — the categories a headless suite never fires.
   forensics on why the automated tests were blind to each. Fire
   `verification_failed --data findings_url=<comment-url>`.
 
-The fix loop that follows is deliberately narrow: SendMessage the **persistent
+The fix loop that follows is deliberately narrow: message the **persistent
 implementer** to fix (with regression tests where possible), then a **fresh
 reviewer scoped to the fix-round diff only** — prior convergence stands for the
 untouched rest — whose verdict must land as a recorded PR comment (sign-off for
@@ -308,9 +323,9 @@ spec change.
   before presenting.
 
 **Still your judgment — the machine can't catch these:**
-- **Resume the implementer with `SendMessage`, never a second `Agent` spawn.**
-- **Fresh reviewer per round, persistent within the round** — new `Agent` each round;
-  re-engage the SAME one to re-assess.
+- **Resume the implementer by messaging it, never a second spawn.**
+- **Fresh reviewer per round, persistent within the round** — a new spawn each
+  round; re-engage the SAME one to re-assess.
 - **Don't route review content through yourself** — verdicts + URLs only; substance lives
   in PR comments.
 - **Aim each follow-up reviewer at the prior reviewers' least-covered dimensions**, while

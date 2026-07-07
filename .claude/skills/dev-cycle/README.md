@@ -28,8 +28,10 @@ states in order.
 
 ## Reusing this in another project
 
-Copy this directory to the other project's `.claude/skills/dev-cycle/`, adapt the
-pre-push gate and any project-specific wording in `SKILL.md`, and ensure `fsmp` is
-on PATH. The `fsmp new --def …` command in `SKILL.md` already points at
-`.claude/skills/dev-cycle/fsmp-definition.yaml`, so it works unchanged once the
-directory is in place.
+Copy this directory to wherever the other project's agent harness discovers
+skills (`.claude/skills/dev-cycle/` in this repo's layout), adapt the pre-push
+gate and any project-specific wording in `SKILL.md`, and ensure `fsmp` is on
+PATH. The `fsmp new --def …` command in `SKILL.md` points at the definition by
+its path from the project root, so adjust it if your skills live elsewhere.
+The skill assumes only the harness capabilities named in its Prerequisites
+(spawn / message / shell); nothing in it is specific to one agent vendor.
